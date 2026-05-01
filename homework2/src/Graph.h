@@ -1,6 +1,10 @@
 #include <iostream>
 #include <vector>
 
+typedef struct {
+    ;
+} Edge;
+
 class Graph {
     /**
      * @property a non-empty set of vertices and a set of undirected edges.
