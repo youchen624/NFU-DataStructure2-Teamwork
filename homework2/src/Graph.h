@@ -2,7 +2,7 @@
 #include <vector>
 
 typedef struct {
-    ;
+    int u, v, weigh;
 } Edge;
 
 class Graph {
