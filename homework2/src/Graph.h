@@ -1,8 +1,12 @@
-#include <iostream>
+#ifndef GRAPH_H
+#define GRAPH_H
+
 #include <vector>
 
+using Vertex = int;
+
 typedef struct {
-    int u, v, weigh;
+    Vertex u, v;
 } Edge;
 
 class Graph {
@@ -17,31 +21,35 @@ public:
     bool is_empty() const { return !n; };
     // return true if graph has no vertices
 
-    int number_of_vertices() const { return n; };
+    size_t number_of_vertices() const { return n; };
     // return number of vertices in the graph
 
-    int number_of_edges() const { return e; };
+    size_t number_of_edges() const { return e; };
     // return number of edges in the graph
 
-    virtual int degree(int u) const = 0;
+
+    virtual size_t degree(Vertex u) const = 0;
     // return number of edges incident to vertex u
 
-    virtual bool exists_edge(int u, int v) const = 0;
+    virtual bool exists_edge(Vertex u, Vertex v) const = 0;
     // return true if graph has the edge (u, v)
 
-    virtual void insert_vertex(int v) const = 0;
+
+    virtual void insert_vertex(Vertex v) = 0;
     // insert vertex v into graph; v has no incident edges
 
-    virtual void insert_edge(int u, int v) const = 0;
+    virtual void insert_edge(Vertex u, Vertex v) = 0;
     // insert edge (u, v) into graph
 
-    virtual void delete_vertex(int v) const = 0;
+    virtual void delete_vertex(Vertex v) = 0;
     // delete v and all edges incident to it
 
-    virtual void delete_edge(int u, int v) const = 0;
+    virtual void delete_edge(Vertex u, Vertex v) = 0;
     // delete edge (u, v) from the graph
 
 private:
-    int n;                      // number of vertices
-    int e;                      // number of edges
+    size_t n;                      // number of vertices
+    size_t e;                      // number of edges
 };
+
+#endif
