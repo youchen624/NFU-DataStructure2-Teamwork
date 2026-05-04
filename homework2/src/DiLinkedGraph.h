@@ -1,17 +1,15 @@
-#ifndef LINKED_DI_GRAPH_H
-#define LINKED_DI_GRAPH_H
+#ifndef DI_LINKED_GRAPH_H
+#define DI_LINKED_GRAPH_H
 
 #include <unordered_map>
 #include <unordered_set>
-// #include <list>
-// #include <stdexcept>
 #include "Graph.h"
 
 
-class LinkedDiGraph : public Graph {
+class DiLinkedGraph : public Graph {
 public:
-    LinkedDiGraph();
-    ~LinkedDiGraph();
+    DiLinkedGraph();
+    ~DiLinkedGraph();
     // destructor
 
     virtual bool is_empty() const override { return data.empty(); };
@@ -49,4 +47,4 @@ protected:
     // strictly, Vertices in Graph is not orderly
 };
 
-#endif // LINKED_DI_GRAPH_H
+#endif // DI_LINKED_GRAPH_H
