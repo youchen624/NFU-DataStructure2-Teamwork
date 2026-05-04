@@ -45,11 +45,20 @@ void UndiLinkedGraph::delete_vertex(Vertex v) {
     if (the == data.end()) return;
     // edge part (others)
     for (const auto& it : the->second) {
-        data[it].erase(v);
+        data.at(it).erase(v); // data[it].erase(v);
     }
     // vertex part
     e -= the->second.size();
     data.erase(the);
 }
 
-// #TODO do delete_edge
+// delete edge (u, v) from the graph
+void UndiLinkedGraph::delete_edge(Vertex u, Vertex v) {
+    auto the = data.find(u);
+    if (the != data.end()) {
+        if (the->second.erase(v)) {
+            data.at(v).erase(u); // data[v].erase(u);
+            --e;
+        }
+    }
+};
