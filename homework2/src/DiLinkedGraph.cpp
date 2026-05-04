@@ -34,12 +34,16 @@ void DiLinkedGraph::insert_vertex(Vertex v) {
 
 // insert edge (u, v) into graph
 void DiLinkedGraph::insert_edge(Vertex u, Vertex v) {
+    data[u].insert(v).second && ++e;
+    // std::unorder_map::[u] maintains uniqueness AND ensure u exists inside
+    // std::unordered_set::insert maintains uniqueness
+    /*
     auto the = data.find(u);
     if (the == data.end()) {
         data.emplace(u, std::unordered_set<Vertex>{v});
         ++e;
     } else the->second.insert(v).second && ++e;
-    // std::unordered_set::insert maintains uniqueness
+    */
 };
 
 // delete v and all edges incident to it

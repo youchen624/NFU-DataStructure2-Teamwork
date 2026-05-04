@@ -1,18 +1,19 @@
-#ifndef DI_LINKED_GRAPH_H
-#define DI_LINKED_GRAPH_H
+#ifndef UNDI_LINKED_GRAPH_H
+#define UNDI_LINKED_GRAPH_H
 
 #include <unordered_map>
 #include <unordered_set>
-#include "Graph.h"
+#include "DiLinkedGraph.h"
 
 
-class DiLinkedGraph : public Graph {
+class UndiLinkedGraph : public DiLinkedGraph {
 public:
-    DiLinkedGraph() {};
-    ~DiLinkedGraph() = default;
+    UndiLinkedGraph() {};
+    ~UndiLinkedGraph() = default;
     // destructor
 
-    virtual bool is_empty() const override { return data.empty(); };
+    // no modify
+    // virtual bool is_empty() const override { return data.empty(); };
     // return true if graph has no vertices
 
     virtual size_t number_of_vertices() const override { return data.size(); };
@@ -26,10 +27,12 @@ public:
     virtual size_t degree(Vertex u) const override;
     // return number of edges incident to vertex u
 
-    virtual bool exists_edge(Vertex u, Vertex v) const override;
+    // no modify // ..(u, v) same as ..(v, u) in meaning
+    // virtual bool exists_edge(Vertex u, Vertex v) const override;
     // return true if graph has the edge (u, v)
 
-    virtual void insert_vertex(Vertex v) override;
+    // no modify
+    // virtual void insert_vertex(Vertex v) override;
     // insert vertex v into graph; v has no incident edges
 
     virtual void insert_edge(Vertex u, Vertex v) override;
@@ -42,9 +45,10 @@ public:
     // delete edge (u, v) from the graph
 
 protected:
+    // already exists in basic-class
     // { Vertex : { Vertex... }... }
-    std::unordered_map<Vertex, std::unordered_set<Vertex>> data;
+    // std::unordered_map<Vertex, std::unordered_set<Vertex>> data;
     // strictly, Vertices in Graph is not orderly
 };
 
-#endif // DI_LINKED_GRAPH_H
+#endif // UNDI_LINKED_GRAPH_H
