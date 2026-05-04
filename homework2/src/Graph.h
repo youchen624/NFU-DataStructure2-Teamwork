@@ -18,13 +18,13 @@ public:
     virtual ~Graph() {};
     // destructor
 
-    bool is_empty() const { return !n; };
+    virtual bool is_empty() const { return !n; };
     // return true if graph has no vertices
 
-    size_t number_of_vertices() const { return n; };
+    virtual size_t number_of_vertices() const { return n; };
     // return number of vertices in the graph
 
-    size_t number_of_edges() const { return e; };
+    virtual size_t number_of_edges() const { return e; };
     // return number of edges in the graph
 
 
@@ -47,9 +47,9 @@ public:
     virtual void delete_edge(Vertex u, Vertex v) = 0;
     // delete edge (u, v) from the graph
 
-private:
+protected:
     size_t n;                      // number of vertices
     size_t e;                      // number of edges
 };
 
-#endif
+#endif // GRAPH_H
