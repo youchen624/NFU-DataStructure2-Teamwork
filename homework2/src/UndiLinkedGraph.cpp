@@ -62,3 +62,5 @@ void UndiLinkedGraph::delete_edge(Vertex u, Vertex v) {
         }
     }
 };
+
+// canceled, bc x2 mem can reduce search time on "degree" // # TO DO one dir
