@@ -1,13 +1,21 @@
 #ifndef GRAPH_H
 #define GRAPH_H
+#define LL long long
 
 #include <vector>
 
 using Vertex = int;
+using Weight_t = LL;
 
+/*  // useless
 typedef struct {
     Vertex u, v;
 } Edge;
+typedef struct {
+    Vertex u, v;
+    Weight_t weigh;
+} WEdge;
+*/
 
 class Graph {
     /**
