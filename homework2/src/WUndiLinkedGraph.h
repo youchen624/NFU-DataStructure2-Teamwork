@@ -9,6 +9,7 @@
 class WUndiLinkedGraph : public WDiLinkedGraph {
     /***
      * this class doesn't mater weight logic when modifying
+     * @logic only save the edge on one direction
      */
 public:
     WUndiLinkedGraph() {};
@@ -45,7 +46,8 @@ public:
     // insert edge (u, v) into graph with weight
     // "weight" will be replaced if the edge has already exists
 
-    virtual void delete_vertex(Vertex v) override;
+    // no modify (same)
+    // virtual void delete_vertex(Vertex v) override;
     // delete v and all edges incident to it
 
     virtual void delete_edge(Vertex u, Vertex v) override;
