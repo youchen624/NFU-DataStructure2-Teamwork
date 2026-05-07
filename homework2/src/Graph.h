@@ -26,6 +26,9 @@ public:
     virtual ~Graph() {};
     // destructor
 
+    //
+    // getter
+
     virtual bool is_empty() const { return !n; };
     // return true if graph has no vertices
 
@@ -35,13 +38,14 @@ public:
     virtual size_t number_of_edges() const { return e; };
     // return number of edges in the graph
 
-
     virtual size_t degree(Vertex u) const = 0;
     // return number of edges incident to vertex u
 
     virtual bool exists_edge(Vertex u, Vertex v) const = 0;
     // return true if graph has the edge (u, v)
 
+    //
+    // modify
 
     virtual void insert_vertex(Vertex v) = 0;
     // insert vertex v into graph; v has no incident edges
@@ -54,6 +58,11 @@ public:
 
     virtual void delete_edge(Vertex u, Vertex v) = 0;
     // delete edge (u, v) from the graph
+
+    //
+    // algorithm
+
+    virtual void DFS(Vertex start) = 0;
 
 protected:
     size_t n;                      // number of vertices
