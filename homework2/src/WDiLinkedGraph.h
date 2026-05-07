@@ -37,8 +37,10 @@ public:
 
     virtual void insert_edge(Vertex u, Vertex v) override;
     // insert edge (u, v) into graph
+
     virtual void insert_edge(Vertex u, Vertex v, Weight_t weight);
     // insert edge (u, v) into graph with weight
+    // "weight" will be replaced if the edge has already exists
 
     virtual void delete_vertex(Vertex v) override;
     // delete v and all edges incident to it

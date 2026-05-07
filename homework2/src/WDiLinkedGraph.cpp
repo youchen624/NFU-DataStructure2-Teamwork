@@ -27,6 +27,7 @@ void WDiLinkedGraph::insert_vertex(Vertex v) {
 
 
 // insert edge (u, v) into graph
+// "weight" will be replaced if the edge has already exists
 void WDiLinkedGraph::insert_edge(Vertex u, Vertex v, Weight_t weight) {
     if (!data[u].count(v)) ++e;
     data[u][v] = weight;
@@ -40,11 +41,12 @@ void WDiLinkedGraph::insert_edge(Vertex u, Vertex v) {
 
 // delete v and all edges incident to it
 void WDiLinkedGraph::delete_vertex(Vertex v) {
-    // vertices part
+    // vertex part
     auto the = data.find(v);
     if (the == data.end()) return;
     e -= the->second.size();
     data.erase(the);
+
     // edges part (others)
     for (auto& pair : data) {
         if (pair.second.erase(v)) --e;
@@ -54,7 +56,6 @@ void WDiLinkedGraph::delete_vertex(Vertex v) {
 // delete edge (u, v) from the graph
 void WDiLinkedGraph::delete_edge(Vertex u, Vertex v) {
     auto the = data.find(u);
-    if (the != data.end()) {
-        if (the->second.erase(v)) --e;
-    }
+    if (the == data.end()) return;
+    if (the->second.erase(v)) --e;
 };

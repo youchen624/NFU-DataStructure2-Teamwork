@@ -53,6 +53,7 @@ void DiLinkedGraph::delete_vertex(Vertex v) {
     if (the == data.end()) return;
     e -= the->second.size();
     data.erase(the);
+
     // edge part (others)
     for (auto& pair : data) {
         if (pair.second.erase(v)) --e;
@@ -62,7 +63,6 @@ void DiLinkedGraph::delete_vertex(Vertex v) {
 // delete edge (u, v) from the graph
 void DiLinkedGraph::delete_edge(Vertex u, Vertex v) {
     auto the = data.find(u);
-    if (the != data.end()) {
-        if (the->second.erase(v)) --e;
-    }
+    if (the == data.end()) return;
+    if (the->second.erase(v)) --e;
 };

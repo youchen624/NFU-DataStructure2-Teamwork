@@ -55,12 +55,11 @@ void UndiLinkedGraph::delete_vertex(Vertex v) {
 // delete edge (u, v) from the graph
 void UndiLinkedGraph::delete_edge(Vertex u, Vertex v) {
     auto the = data.find(u);
-    if (the != data.end()) {
-        if (the->second.erase(v)) {
-            data.at(v).erase(u); // data[v].erase(u);
-            --e;
-        }
+    if (the == data.end()) return;
+    if (the->second.erase(v)) {
+        data.at(v).erase(u); // data[v].erase(u);
+        --e;
     }
 };
 
-// canceled, bc x2 mem can reduce search time on "degree" // # TO DO one dir
+// (look END)=> canceled, bc x2 mem can reduce search time on "degree" // # TO DO one dir
