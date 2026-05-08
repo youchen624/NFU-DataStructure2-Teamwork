@@ -16,6 +16,9 @@ public:
     ~WUndiLinkedGraph() = default;
     // destructor
 
+    //
+    // getter
+
     // no modify
     // virtual bool is_empty() const override { return data.empty(); };
     // return true if graph has no vertices
@@ -28,12 +31,15 @@ public:
     // virtual size_t number_of_edges() const { return e; };
     // return number of edges in the graph
 
-    // no modify
-    // virtual size_t degree(Vertex u) const override;
+    virtual size_t degree(Vertex u) const override;
     // return number of edges incident to vertex u
 
-    virtual bool exists_edge(Vertex u, Vertex v) const override;
+    // no modify
+    // virtual bool exists_edge(Vertex u, Vertex v) const override;
     // return true if graph has the edge (u, v)
+
+    //
+    // modify-type
 
     // no modify
     // virtual void insert_vertex(Vertex v) override;
@@ -46,12 +52,14 @@ public:
     // insert edge (u, v) into graph with weight
     // "weight" will be replaced if the edge has already exists
 
-    // no modify (same)
-    // virtual void delete_vertex(Vertex v) override;
+    virtual void delete_vertex(Vertex v) override;
     // delete v and all edges incident to it
 
     virtual void delete_edge(Vertex u, Vertex v) override;
     // delete edge (u, v) from the graph
+
+    // algorithm
+    virtual void DFS(Vertex start) override;
 
 protected:
     // already exists in basic-class

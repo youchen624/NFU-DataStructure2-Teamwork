@@ -2,7 +2,8 @@
 #define W_DI_LINKED_GRAPH_H
 
 #include <unordered_map>
-// #include <unordered_set>
+#include <unordered_set>
+#include <functional>
 #include "Graph.h"
 
 
@@ -15,6 +16,9 @@ public:
     ~WDiLinkedGraph() = default;
     // destructor
 
+    //
+    // getter
+
     virtual bool is_empty() const override { return data.empty(); };
     // return true if graph has no vertices
 
@@ -25,12 +29,14 @@ public:
     // virtual size_t number_of_edges() const { return e; };
     // return number of edges in the graph
 
-
     virtual size_t degree(Vertex u) const override;
     // return number of edges incident to vertex u
 
     virtual bool exists_edge(Vertex u, Vertex v) const override;
     // return true if graph has the edge (u, v)
+
+    //
+    // modify-type
 
     virtual void insert_vertex(Vertex v) override;
     // insert vertex v into graph; v has no incident edges
@@ -47,6 +53,11 @@ public:
 
     virtual void delete_edge(Vertex u, Vertex v) override;
     // delete edge (u, v) from the graph
+
+    //
+    // algorithm
+
+    virtual void DFS(Vertex start) override;
 
 protected:
     // { Vertex : { Vertex: Weight_t... } }... }

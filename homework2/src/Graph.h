@@ -45,7 +45,7 @@ public:
     // return true if graph has the edge (u, v)
 
     //
-    // modify
+    // modify-type
 
     virtual void insert_vertex(Vertex v) = 0;
     // insert vertex v into graph; v has no incident edges

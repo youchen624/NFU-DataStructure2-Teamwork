@@ -50,18 +50,7 @@ public:
     //
     // algorithm
 
-    virtual void DFS(Vertex start) {
-        // std::cout << "DFS:" << std::endl;
-        std::unordered_set<Vertex> set;
-        std::function<void(Vertex)> rec = [&](Vertex pos) {
-            set.insert(pos);
-            auto const& the = data.find(pos);
-            if (the == data.end()) return;
-            for (auto const& v : the->second) {
-                // #TODO make 走訪所有 by rec
-            }
-        };
-    }
+    virtual void DFS(Vertex start) override;
 
 protected:
     // { Vertex : { Vertex... }... }

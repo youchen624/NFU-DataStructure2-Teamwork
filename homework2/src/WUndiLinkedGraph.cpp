@@ -3,10 +3,16 @@
 // WUndiLinkedGraph
 
 // return true if graph has the edge (u, v)
-bool WUndiLinkedGraph::exists_edge(Vertex u, Vertex v) const {
-    return
-        WDiLinkedGraph::exists_edge(u, v) ||
-        WDiLinkedGraph::exists_edge(v, u);
+// bool WUndiLinkedGraph::exists_edge(Vertex u, Vertex v) const {
+//     return
+//         WDiLinkedGraph::exists_edge(u, v) ||
+//         WDiLinkedGraph::exists_edge(v, u);
+// };
+
+size_t WUndiLinkedGraph::degree(Vertex u) const {
+    auto the = data.find(u);
+    if (the == data.end()) return 0;
+    else return the->second.size();
 };
 
 // insert edge (u, v) into graph
@@ -16,13 +22,9 @@ void WUndiLinkedGraph::insert_edge(Vertex u, Vertex v) {
 // insert edge (u, v) into graph with weight
 // "weight" will be replaced if the edge has already exists
 void WUndiLinkedGraph::insert_edge(Vertex u, Vertex v, Weight_t weight) {
-    if (data[u].count(v) || data[v].count(u)) {
-        if (data[u].count(v)) data[u][v] = weight;
-        else data[v][u] = weight;
-    } else {
+    if (!exists_edge(u, v)) ++e;
         data[u][v] = weight;
-        ++e;
-    }
+        data[v][u] = weight;
 };
 
 // delete v and all edges incident to it
@@ -52,3 +54,32 @@ void WUndiLinkedGraph::delete_edge(Vertex u, Vertex v) {
     if (othe != data.end() && othe->second.erase(u))
         --e;
 };
+
+// delete v and all edges incident to it
+void WUndiLinkedGraph::delete_vertex(Vertex v) {
+    // check
+    auto the = data.find(v);
+    if (the == data.end()) return;
+    // edge part (others)
+    for (const auto& it : the->second) {
+        data.at(it.first).erase(v); // data[it].erase(v);
+    }
+    // vertex part
+    e -= the->second.size();
+    data.erase(the);
+};
+    
+void WUndiLinkedGraph::DFS(Vertex start) {
+    if (data.find(start) == data.end()) return;
+    std::unordered_set<Vertex> visited; // make sure only once
+    std::function<void(Vertex)> rec = [&](Vertex pos) {
+        visited.insert(pos);
+        auto const& the = data.at(pos);
+        for (auto const& it : the) {
+            if (visited.count(it.first)) continue;
+            rec(it.first);
+        }
+    };
+    // exe
+    rec(start);
+}
