@@ -69,7 +69,7 @@ void WUndiLinkedGraph::delete_vertex(Vertex v) {
     data.erase(the);
 };
     
-void WUndiLinkedGraph::DFS(Vertex start) {
+void WUndiLinkedGraph::getDFS(Vertex start) {
     if (data.find(start) == data.end()) return;
     std::unordered_set<Vertex> visited; // make sure only once
     std::function<void(Vertex)> rec = [&](Vertex pos) {

@@ -52,7 +52,7 @@ public:
     //
     // algorithm
 
-    virtual void DFS(Vertex start) override;
+    virtual void getDFS(Vertex start) override;
 
 protected:
     // already exists in basic-class

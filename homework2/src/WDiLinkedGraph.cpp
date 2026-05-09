@@ -61,7 +61,7 @@ void WDiLinkedGraph::delete_edge(Vertex u, Vertex v) {
 };
 
 
-void WDiLinkedGraph::DFS(Vertex start) {
+void WDiLinkedGraph::getDFS(Vertex start) {
     if (data.find(start) == data.end()) return;
     std::unordered_set<Vertex> visited; // make sure only once
     std::function<void(Vertex)> rec = [&](Vertex pos) {

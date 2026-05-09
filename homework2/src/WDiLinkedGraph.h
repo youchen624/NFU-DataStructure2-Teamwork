@@ -57,7 +57,7 @@ public:
     //
     // algorithm
 
-    virtual void DFS(Vertex start) override;
+    virtual void getDFS(Vertex start) override;
 
 protected:
     // { Vertex : { Vertex: Weight_t... } }... }

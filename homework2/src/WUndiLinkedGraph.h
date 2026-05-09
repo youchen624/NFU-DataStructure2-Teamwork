@@ -58,8 +58,10 @@ public:
     virtual void delete_edge(Vertex u, Vertex v) override;
     // delete edge (u, v) from the graph
 
+    //
     // algorithm
-    virtual void DFS(Vertex start) override;
+
+    virtual void getDFS(Vertex start) override;
 
 protected:
     // already exists in basic-class

@@ -63,7 +63,7 @@ void UndiLinkedGraph::delete_edge(Vertex u, Vertex v) {
 };
 
 
-void UndiLinkedGraph::DFS(Vertex start) {
+void UndiLinkedGraph::getDFS(Vertex start) {
     if (data.find(start) == data.end()) return;
     std::unordered_set<Vertex> visited; // make sure only once
     std::function<void(Vertex)> rec = [&](Vertex pos) {

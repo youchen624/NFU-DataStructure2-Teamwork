@@ -5,17 +5,36 @@
 #include <vector>
 
 using Vertex = int;
-using Weight_t = LL;
+using Weight_t = int; //LL;
+using Order_t = size_t;
 
-/*  // useless
 typedef struct {
     Vertex u, v;
 } Edge;
+/*  // useless
 typedef struct {
     Vertex u, v;
     Weight_t weigh;
 } WEdge;
 */
+
+typedef struct {
+    // sequence of Vertices (i -> Vertex)
+    std::vector<Vertex> order;
+
+    // order of each Vertex (Vertex -> order)
+    std::unordered_map<Vertex, Order_t> dfn;
+
+    // earliest reachability (closest to root)
+    std::unordered_map<Vertex, Order_t> low_link;
+
+    //
+    std::unordered_map<Vertex, Vertex> parent;
+    std::unordered_map<Vertex, Vertex> children;
+
+    std::vector<Edge> tree_edges;
+    std::vector<Edge> none_tree_edges;
+} DFS_Result;
 
 class Graph {
     /**
@@ -62,7 +81,22 @@ public:
     //
     // algorithm
 
-    virtual void DFS(Vertex start) = 0;
+    // get Depth-First Search
+    virtual void getDFS(Vertex start) = 0;
+    // virtual void getDFS(Vertex start, std::vector<Vertex>& components) = 0; // for saving the order
+    
+    // get Breadth-First Search
+    virtual void getBFS(Vertex start) = 0;
+    // virtual void getBFS(Vertex start, std::vector<Vertex>& components) = 0; // for saving the order
+
+    // get Connected Components
+    virtual std::vector<std::vector<Vertex>> getComponents() = 0;
+
+    // get Spanning Tree
+    virtual std::vector<Edge> getSpanningTree() = 0;
+
+    // get Biconnected Components
+    virtual std::vector<Vertex> getBCC() = 0;
 
 protected:
     size_t n;                      // number of vertices
