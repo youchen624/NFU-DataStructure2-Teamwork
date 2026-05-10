@@ -67,8 +67,50 @@ void DiLinkedGraph::delete_edge(Vertex u, Vertex v) {
     if (the->second.erase(v)) --e;
 };
 
-void DiLinkedGraph::getDFS(Vertex start) {
-    if (data.find(start) == data.end()) return;
+DFS_Result DiLinkedGraph::getDFS(Vertex start) {
+    if (data.find(start) == data.end()) return {};
+    DFS_Result res;
+    Order_t counter = 0;
+    std::unordered_set<Vertex> on_stack;
+    std::function<void(Vertex)> rec = [&](Vertex pos) {
+        res.order.push_back(pos);
+        res.dfn[pos] = res.low_link[pos] = counter;
+        ++counter;
+
+        // #TODO fix DFS "on_stack" is required
+        // visited.insert(pos);
+        auto const& the = data.at(pos);
+        for (auto const& it : the) {
+            // if (visited.count(it)) {
+            if (res.dfn.find(it) == res.dfn.end()) {
+                // never visit
+                res.parent[it] = pos;
+                res.children[pos].push_back(it);
+                rec(it);                                // recursive
+                res.low_link[pos] = std::min(
+                    res.low_link[pos],
+                    res.low_link[it]
+                );
+            } else {
+                // been visited
+                res.low_link[pos] = std::min(
+                    res.low_link[pos],
+                    res.dfn[it]
+                );
+                // continue;
+            }
+        }
+    };
+    // exe
+    rec(start);
+    return res;
+}
+
+/*
+
+DFS_Result DiLinkedGraph::getDFS(Vertex start) {
+    if (data.find(start) == data.end()) return {};
+    DFS_Result res;
     std::unordered_set<Vertex> visited; // make sure only once
     std::function<void(Vertex)> rec = [&](Vertex pos) {
         visited.insert(pos);
@@ -81,3 +123,4 @@ void DiLinkedGraph::getDFS(Vertex start) {
     // exe
     rec(start);
 }
+*/

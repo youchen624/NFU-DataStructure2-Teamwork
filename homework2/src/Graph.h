@@ -19,21 +19,26 @@ typedef struct {
 */
 
 typedef struct {
-    // sequence of Vertices (i -> Vertex)
+    // sequence of Vertices (i -> Vertex) | [ Vertex... ]
     std::vector<Vertex> order;
 
-    // order of each Vertex (Vertex -> order)
+    // order of each Vertex (Vertex -> order) | { Vertex : Order_t... }
     std::unordered_map<Vertex, Order_t> dfn;
 
-    // earliest reachability (closest to root)
+    // earliest reachability (closest to root) | { Vertex : Order_t... }
     std::unordered_map<Vertex, Order_t> low_link;
 
-    //
+    // each Vertices' parent | { Vertext : Vertex... }
     std::unordered_map<Vertex, Vertex> parent;
-    std::unordered_map<Vertex, Vertex> children;
+    // each Vertices' childrens | { Vertext : [ Vertex... ]... }
+    std::unordered_map<Vertex, std::vector<Vertex>> children;
+    // std::unordered_map<Vertex, std::unordered_set<Vertex>> not better
 
-    std::vector<Edge> tree_edges;
-    std::vector<Edge> none_tree_edges;
+    // articulation points | { Vertex... }
+    std::unordered_set<Vertex> articulation_points;
+
+    // std::vector<Edge> tree_edges;            // T
+    // std::vector<Edge> none_tree_edges; // N
 } DFS_Result;
 
 class Graph {
@@ -82,7 +87,7 @@ public:
     // algorithm
 
     // get Depth-First Search
-    virtual void getDFS(Vertex start) = 0;
+    virtual DFS_Result getDFS(Vertex start) = 0;
     // virtual void getDFS(Vertex start, std::vector<Vertex>& components) = 0; // for saving the order
     
     // get Breadth-First Search

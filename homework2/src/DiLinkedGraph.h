@@ -50,7 +50,7 @@ public:
     //
     // algorithm
 
-    virtual void getDFS(Vertex start) override;
+    virtual DFS_Result getDFS(Vertex start) override;
 
 protected:
     // { Vertex : { Vertex... }... }
