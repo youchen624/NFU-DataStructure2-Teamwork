@@ -83,21 +83,22 @@ DFS_Result DiLinkedGraph::getDFS(Vertex start) {
         ++counter;
 
         auto const& the = data.at(pos);
-        for (auto const& it : the) {        // iterate all childrens
-            if (res.dfn.find(it) == res.dfn.end()) {
+        for (auto const& npos : the) {        // iterate all childrens
+            if (res.dfn.find(npos) == res.dfn.end()) {
                 // never visit
-                res.parent[it] = pos;
-                res.children[pos].push_back(it);
-                rec(it);                                // recursive
+                res.parent[npos] = pos;
+                res.children[pos].push_back(npos);
+                res.tree_edges.push_back({pos, npos}); // tree
+                rec(npos);                             // recursive
                 res.low_link[pos] = std::min(
                     res.low_link[pos],
-                    res.low_link[it]
+                    res.low_link[npos]
                 );
-            } else if (on_stack.count(it)) {
+            } else if (on_stack.count(npos)) {
                 // been visited AND is a parent
                 res.low_link[pos] = std::min(
                     res.low_link[pos],
-                    res.dfn[it]
+                    res.dfn[npos]
                 );
             }   // not a parent // else { }
         }
