@@ -67,9 +67,20 @@ void DiLinkedGraph::delete_edge(Vertex u, Vertex v) {
     if (the->second.erase(v)) --e;
 };
 
-DFS_Result DiLinkedGraph::getDFS(Vertex start) {
-    if (data.find(start) == data.end()) return {};
+DFS_Result DiLinkedGraph::getDFS(Vertex start) const {
+    if (is_empty()) return {};
+
+    // start from NOT exists
+    if (data.find(start) == data.end())
+#ifndef ALLOW_DFS_START_FROM_NOT_EXISTS
+        return {};                               // END
+#else
+        start = data.begin()->first;    // get a RND one
+#endif
+
     DFS_Result res; // save result
+    res.components.emplace_back();  // for save [[]]
+    std::vector<Vertex>* components_ptr = &res.components.back();
     Order_t counter = 0;
     std::unordered_set<Vertex> on_stack;
     // determine that in a chain from parent, not from other chain
@@ -79,15 +90,19 @@ DFS_Result DiLinkedGraph::getDFS(Vertex start) {
     std::function<void(Vertex)> rec = [&](Vertex pos) {
         on_stack.insert(pos);                // into stack
 
+        // if (!res.dfn.count(pos)) // always true
+        components_ptr->push_back(pos); // components
+
         // order
         res.order.push_back(pos);
         res.dfn[pos] = res.low_link[pos] = counter;
         ++counter;
 
         auto const& the = data.at(pos);
-        for (auto const& npos : the) {        // iterate all childrens
+        for (auto const& npos : the) {
+            // iterate all childrens
             if (res.dfn.find(npos) == res.dfn.end()) {
-                // never visit
+                // never visited
                 res.parent[npos] = pos;
                 res.children[pos].push_back(npos);
                 res.tree_edges.push_back({pos, npos}); // tree
@@ -104,28 +119,32 @@ DFS_Result DiLinkedGraph::getDFS(Vertex start) {
                 );
             }   // NOT in current DFS stack // else { }
         }
-        on_stack.erase(pos);                // end stack
+        on_stack.erase(pos);                // END stack
     };
     // exe
     rec(start);
+    for (auto const& v : data) {
+        // for isolated
+        if (!res.dfn.count(v.first)) {
+            res.components.emplace_back();
+            components_ptr = &res.components.back();
+            rec(v.first);
+        }
+    }
     return res;
 }
 
-/*
-
-DFS_Result DiLinkedGraph::getDFS(Vertex start) {
-    if (data.find(start) == data.end()) return {};
-    DFS_Result res;
-    std::unordered_set<Vertex> visited; // make sure only once
-    std::function<void(Vertex)> rec = [&](Vertex pos) {
-        visited.insert(pos);
-        auto const& the = data.at(pos);
-        for (auto const& it : the) {
-            if (visited.count(it)) continue;
-            rec(it);
-        }
-    };
-    // exe
-    rec(start);
+DFS_Result DiLinkedGraph::getDFS() const {
+    if (is_empty()) return {};
+    else return getDFS(data.begin()->first);
 }
-*/
+
+// no modify
+// std::vector<std::vector<Vertex>> const& DiLinkedGraph::getCComponents(const DFS_Result &dfs) const {
+//     return dfs.components;
+// };
+
+// you should call this function with the DFS result
+std::vector<std::vector<Vertex>> const DiLinkedGraph::getCComponents() const {
+    return getDFS().components;
+};

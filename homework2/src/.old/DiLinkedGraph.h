@@ -50,7 +50,12 @@ public:
     //
     // algorithm
 
-    virtual DFS_Result getDFS(Vertex start) override;
+    virtual DFS_Result getDFS(Vertex start) const override;
+    virtual DFS_Result getDFS() const override;
+
+    // get Connected Components
+    virtual std::vector<std::vector<Vertex>> const& getCComponents(const DFS_Result &dfs) const override;
+    virtual std::vector<std::vector<Vertex>> const getCComponents() const override;
 
 protected:
     // { Vertex : { Vertex... }... }
