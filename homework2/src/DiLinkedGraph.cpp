@@ -69,19 +69,21 @@ void DiLinkedGraph::delete_edge(Vertex u, Vertex v) {
 
 DFS_Result DiLinkedGraph::getDFS(Vertex start) {
     if (data.find(start) == data.end()) return {};
-    DFS_Result res;
+    DFS_Result res; // save result
     Order_t counter = 0;
     std::unordered_set<Vertex> on_stack;
+    // determine that in a chain from parent, not from other chain
+
     std::function<void(Vertex)> rec = [&](Vertex pos) {
+        on_stack.insert(pos);                // into stack
+
+        // order
         res.order.push_back(pos);
         res.dfn[pos] = res.low_link[pos] = counter;
         ++counter;
 
-        // #TODO fix DFS "on_stack" is required
-        // visited.insert(pos);
         auto const& the = data.at(pos);
-        for (auto const& it : the) {
-            // if (visited.count(it)) {
+        for (auto const& it : the) {        // iterate all childrens
             if (res.dfn.find(it) == res.dfn.end()) {
                 // never visit
                 res.parent[it] = pos;
@@ -91,15 +93,15 @@ DFS_Result DiLinkedGraph::getDFS(Vertex start) {
                     res.low_link[pos],
                     res.low_link[it]
                 );
-            } else {
-                // been visited
+            } else if (on_stack.count(it)) {
+                // been visited AND is a parent
                 res.low_link[pos] = std::min(
                     res.low_link[pos],
                     res.dfn[it]
                 );
-                // continue;
-            }
+            }   // not a parent // else { }
         }
+        on_stack.erase(pos);                // end stack
     };
     // exe
     rec(start);

@@ -36,8 +36,10 @@ typedef struct {
 
     // articulation points | { Vertex... }
     std::unordered_set<Vertex> articulation_points;
+    // using in Undirection Graph
 
-    // std::vector<Edge> tree_edges;            // T
+    // spanning tree
+    std::vector<Edge> tree_edges;            // T
     // std::vector<Edge> none_tree_edges; // N
 } DFS_Result;
 
