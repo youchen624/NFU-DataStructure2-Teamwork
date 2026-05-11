@@ -74,6 +74,8 @@ DFS_Result DiLinkedGraph::getDFS(Vertex start) {
     std::unordered_set<Vertex> on_stack;
     // determine that in a chain from parent, not from other chain
 
+    // stack? for SCC // std::stack<Vertex> stk;
+
     std::function<void(Vertex)> rec = [&](Vertex pos) {
         on_stack.insert(pos);                // into stack
 
@@ -95,12 +97,12 @@ DFS_Result DiLinkedGraph::getDFS(Vertex start) {
                     res.low_link[npos]
                 );
             } else if (on_stack.count(npos)) {
-                // been visited AND is a parent
+                // been visited AND is in current DFS stack
                 res.low_link[pos] = std::min(
                     res.low_link[pos],
                     res.dfn[npos]
                 );
-            }   // not a parent // else { }
+            }   // NOT in current DFS stack // else { }
         }
         on_stack.erase(pos);                // end stack
     };

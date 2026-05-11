@@ -18,13 +18,7 @@ typedef struct {
 } WEdge;
 */
 
-enum class GraphDirection_t {
-    Undirection,
-    Direction
-};
 typedef struct {
-    ;
-
     // sequence of Vertices (i -> Vertex) | [ Vertex... ]
     std::vector<Vertex> order;
 
