@@ -2,16 +2,58 @@
 #define GRAPH_H
 #define LL long long
 
-// allow getDFS(Vertext v) that v NOT includes in Graph
+// allow getDFS(Vertext v) and getBFS(Vertex v) that v NOT includes in Graph
 // disable it if you want NOT allow call with a NOT existing Vertex
-#define ALLOW_DFS_START_FROM_NOT_EXISTS
+#define ALLOW_FS_START_FROM_NOT_EXISTS
 
 #include <exception>
+// #include <type_traits>
 #include <vector>
+#include <stack>
+#include <unordered_map>
+#include <unordered_set>
 
 using Vertex = int;
 using Weight_t = double;
 using Order_t = size_t;
+
+typedef struct {
+    Vertex u, v;
+} Edge;
+// DFS results (for analyze)
+typedef struct {
+    // sequence of Vertices (i -> Vertex) | [ Vertex... ]
+    std::vector<Vertex> order;
+
+    // order of each Vertex (Vertex -> order) | { Vertex : Order_t... }
+    std::unordered_map<Vertex, Order_t> dfn;
+
+    // earliest reachability (closest to root) | { Vertex : Order_t... }
+    std::unordered_map<Vertex, Order_t> low_link;
+
+    // each Vertices' parent | { Vertext : Vertex... }
+    std::unordered_map<Vertex, Vertex> parent;
+    // each Vertices' childrens | { Vertext : [ Vertex... ]... }
+    std::unordered_map<Vertex, std::vector<Vertex>> children;
+    // std::unordered_map<Vertex, std::unordered_set<Vertex>> not better
+
+    // articulation points | { Vertex... }
+    std::unordered_set<Vertex> articulation_points;
+    // using in Undirection Graph
+
+    // components | [ [ Vertex... ]... ]
+    std::vector<std::vector<Vertex>> components;
+
+    // spanning trees (allowed forest)
+    std::vector<Edge> tree_edges;            // T
+    // std::vector<Edge> none_tree_edges; // N
+} DFS_Result;
+
+typedef struct {
+    std::vector<Vertex> order;
+    std::unordered_map<Vertex, Vertex> parent;
+    std::unordered_map<Vertex, std::vector<Vertex>> children;
+} BFS_Result;
 
 // COMPONENTS | EMPTY
 struct Empty { };
@@ -47,9 +89,22 @@ struct Storage {
             std::unordered_set<Vertex>                      // { V... }
         >;
 
+        //
+        // data
+
         // { Vertex : { Vertex : Weight_t... }... } / { Vertex : { Vertex... } }
         std::unordered_map<Vertex, NB_t> data;
         size_t e;                       // numbers of edges
+
+
+        //
+        // func | helper
+        static Vertex get_npos(const auto& item) {
+if constexpr (WeightType::is_weight)
+            return item.first;
+else
+            return item;
+        };
 
 
         //
@@ -68,15 +123,15 @@ struct Storage {
         size_t degree(Vertex u) const {
             auto the = data.find(u);
             if (the == data.end()) return 0;
-            if constexpr (Is_Directed::is_directed) {       // IF
-                size_t t = the->second.size();
-                for (const auto& pair : data) {
-                    t += pair.second.count(u); // set::contains // C20
-                }
-                return t;
-            } else {                                                          // ELSE
-                return the->second.size();
+if constexpr (Is_Directed::is_directed) {       // IF
+            size_t t = the->second.size();
+            for (const auto& pair : data) {
+                t += pair.second.count(u); // set::contains // C20
             }
+            return t;
+} else {                                                          // ELSE
+            return the->second.size();
+}
         };
 
         // return true if graph has the edge (u, v)
@@ -91,31 +146,42 @@ struct Storage {
 
         // insert vertex v into graph; v has no incident edges
         void insert_vertex(Vertex v) {
-            if constexpr (WeightType::is_weight) {       // IF
-                data.emplace(v, std::unordered_map<Vertex, Weight_t>{});
-            } else {                                                       // ELSE
-                data.emplace(v, std::unordered_set<Vertex>{});
-            }
+if constexpr (WeightType::is_weight) {       // IF
+            data.emplace(v, std::unordered_map<Vertex, Weight_t>{});
+} else {                                                       // ELSE
+            data.emplace(v, std::unordered_set<Vertex>{});
+}
         };
 
         // insert edge (u, v) into graph
         void insert_edge(Vertex u, Vertex v, Weight_t w = Weight_t{}) {
             if (u == v) throw std::invalid_argument("(v, v) is illegal");  // if make it possible, must fix the logic
-            if constexpr (Is_Directed::is_directed) {     // IF
-                if (!data[u].count(v)) ++e;
-                insert_vertex(v);    // possible no exists
-                if constexpr (WeightType::is_weight) data[u][v] = w;   // IF
-                else data[u].insert(v);                                                  // ELSE
-            } else {                                                       // ELSE
-                if (!data[u].count(v)) ++e;
-                if constexpr (WeightType::is_weight) {                        // IF
-                    data[u][v] = w;
-                    data[v][u] = w;
-                } else {                                                                         //ELSE
-                    data[u].insert(v);
-                    data[v].insert(u);
-                }
-            }
+            insert_vertex(v);    // possible no exists
+            if (!data[u].count(v)) ++e;
+
+            // helper
+            auto add_edge = [&](Vertex from, Vertex to, Weight_t weight) {
+if constexpr (WeightType::is_weight)
+                data[from][to] = weight;
+else
+                data[from].insert(to);
+            };
+
+            add_edge(u, v, w);
+if constexpr (!Is_Directed::is_directed) {     // IFN
+            add_edge(v, u, w);
+}
+/*
+else {                                                       // ELSE
+if constexpr (WeightType::is_weight) {                        // IF
+data[u][v] = w;
+data[v][u] = w;
+} else {                                                                         //ELSE
+data[u].insert(v);
+data[v].insert(u);
+}
+}
+*/
         };
 
         // delete v and all edges incident to it
@@ -124,11 +190,11 @@ struct Storage {
             if (the == data.end()) return;
 
             // edges part
-            if constexpr (Is_Directed::is_directed) {                           // IF
-                for (auto& [_, sec] : data) if (sec.erase(v)) --e;
-            } else {                                                                              // ELSE
-                for (const auto& it : the->second) data.at(it).erase(v);
-            }
+if constexpr (Is_Directed::is_directed) {                           // IF
+            for (auto& [_, sec] : data) if (sec.erase(v)) --e;
+} else {                                                                              // ELSE
+            for (const auto& it : the->second) data.at(it).erase(v);
+}
 
             // vertices part
             e -= the->second.size();
@@ -140,9 +206,9 @@ struct Storage {
             auto the = data.find(u);
             if (the == data.end()) return;
             if (the->second.erase(v)) {
-                if constexpr (!Is_Directed::is_directed) {      // IF
-                    data.at(v).erase(u); // data[v].erase(u);
-                }
+if constexpr (!Is_Directed::is_directed) {      // IF
+                data.at(v).erase(u); // data[v].erase(u);
+}
                 --e;
             }
         };
@@ -151,77 +217,78 @@ struct Storage {
         //
         // algorithm
 
-        /*
-        
-DFS_Result DiLinkedGraph::getDFS(Vertex start) const {
-    if (is_empty()) return {};
+        DFS_Result getDFS(Vertex start) const {
+            if (is_empty()) return {};
 
-    // start from NOT exists
-    if (data.find(start) == data.end())
-#ifndef ALLOW_DFS_START_FROM_NOT_EXISTS
-        return {};                               // END
+            // start from NOT exists
+            if (data.find(start) == data.end())
+#ifndef ALLOW_FS_START_FROM_NOT_EXISTS
+                return {};                               // END
 #else
-        start = data.begin()->first;    // get a RND one
+                start = data.begin()->first;    // get a RND one
 #endif
 
-    DFS_Result res; // save result
-    res.components.emplace_back();  // for save [[]]
-    std::vector<Vertex>* components_ptr = &res.components.back();
-    Order_t counter = 0;
-    std::unordered_set<Vertex> on_stack;
-    // determine that in a chain from parent, not from other chain
+            DFS_Result res; // save result
+            res.components.emplace_back();  // for save [[]]
+            std::vector<Vertex>* components_ptr = &res.components.back();
+            Order_t counter = 0;
+            std::unordered_set<Vertex> on_stack;
+            // determine that in a chain from parent, not from other chain
 
-    // stack? for SCC // std::stack<Vertex> stk;
+            // stack? for SCC // std::stack<Vertex> stk;
 
-    std::function<void(Vertex)> rec = [&](Vertex pos) {
-        on_stack.insert(pos);                // into stack
+            // #TODO NOT WORK in all instances
+            std::function<void(Vertex)> rec = [&](Vertex pos) {
+                on_stack.insert(pos);                // BEGIN stack
 
-        // if (!res.dfn.count(pos)) // always true
-        components_ptr->push_back(pos); // components
+                // if (!res.dfn.count(pos)) // always true
+                components_ptr->push_back(pos); // components
 
-        // order
-        res.order.push_back(pos);
-        res.dfn[pos] = res.low_link[pos] = counter;
-        ++counter;
+                // order
+                res.order.push_back(pos);
+                res.dfn[pos] = res.low_link[pos] = counter;
+                ++counter;
 
-        auto const& the = data.at(pos);
-        for (auto const& npos : the) {
-            // iterate all childrens
-            if (res.dfn.find(npos) == res.dfn.end()) {
-                // never visited
-                res.parent[npos] = pos;
-                res.children[pos].push_back(npos);
-                res.tree_edges.push_back({pos, npos}); // tree
-                rec(npos);                             // recursive
-                res.low_link[pos] = std::min(
-                    res.low_link[pos],
-                    res.low_link[npos]
-                );
-            } else if (on_stack.count(npos)) {
-                // been visited AND is in current DFS stack
-                res.low_link[pos] = std::min(
-                    res.low_link[pos],
-                    res.dfn[npos]
-                );
-            }   // NOT in current DFS stack // else { }
-        }
-        on_stack.erase(pos);                // END stack
-    };
-    // exe
-    rec(start);
-    for (auto const& v : data) {
-        // for isolated
-        if (!res.dfn.count(v.first)) {
-            res.components.emplace_back();
-            components_ptr = &res.components.back();
-            rec(v.first);
-        }
-    }
-    return res;
-}
+                auto const& the = data.at(pos);
+                for (auto const& item : the) {
+                    const Vertex npos = get_npos(item);
+                    // iterate all childrens
+                    if (res.dfn.find(npos) == res.dfn.end()) {
+                        // never visited
+                        res.parent[npos] = pos;
+                        res.children[pos].push_back(npos);
+                        res.tree_edges.push_back({pos, npos}); // tree
+                        rec(npos);                             // recursive
+                        res.low_link[pos] = std::min(
+                            res.low_link[pos],
+                            res.low_link[npos]
+                        );
+                    } else if (on_stack.count(npos)) {
+                        // been visited AND is in current DFS stack
+                        // (pos -> npos) is a back-edge
+                        res.low_link[pos] = std::min(
+                            res.low_link[pos],
+                            res.dfn[npos]
+                        );
+                    }   // NOT in current DFS stack // else { }
+                }
+                on_stack.erase(pos);                // END stack
+            };
+            // exe
+            rec(start);
+            for (auto const& v : data) {
+                // for isolated
+                if (!res.dfn.count(v.first)) {
+                    res.components.emplace_back();
+                    components_ptr = &res.components.back();
+                    rec(v.first);
+                }
+            }
+            return res;
+        };
 
 
-
+/*
 DFS_Result DiLinkedGraph::getDFS() const {
     if (is_empty()) return {};
     else return getDFS(data.begin()->first);
@@ -242,9 +309,6 @@ std::vector<std::vector<Vertex>> const DiLinkedGraph::getCComponents() const {
 
 
 
-typedef struct {
-    Vertex u, v;
-} Edge;
 
 /*  // useless
 typedef struct {
@@ -252,35 +316,6 @@ typedef struct {
     Weight_t weigh;
 } WEdge;
 */
-
-// DFS results (for analyze)
-typedef struct {
-    // sequence of Vertices (i -> Vertex) | [ Vertex... ]
-    std::vector<Vertex> order;
-
-    // order of each Vertex (Vertex -> order) | { Vertex : Order_t... }
-    std::unordered_map<Vertex, Order_t> dfn;
-
-    // earliest reachability (closest to root) | { Vertex : Order_t... }
-    std::unordered_map<Vertex, Order_t> low_link;
-
-    // each Vertices' parent | { Vertext : Vertex... }
-    std::unordered_map<Vertex, Vertex> parent;
-    // each Vertices' childrens | { Vertext : [ Vertex... ]... }
-    std::unordered_map<Vertex, std::vector<Vertex>> children;
-    // std::unordered_map<Vertex, std::unordered_set<Vertex>> not better
-
-    // articulation points | { Vertex... }
-    std::unordered_set<Vertex> articulation_points;
-    // using in Undirection Graph
-
-    // components | [ [ Vertex... ]... ]
-    std::vector<std::vector<Vertex>> components;
-
-    // spanning trees (allowed forest)
-    std::vector<Edge> tree_edges;            // T
-    // std::vector<Edge> none_tree_edges; // N
-} DFS_Result;
 
 
 class IGraph {
