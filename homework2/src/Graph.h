@@ -14,7 +14,7 @@
 #include <unordered_set>
 
 using Vertex = int;
-using Weight_t = double;
+using Weight_t_d = double;
 using Order_t = size_t;
 
 typedef struct {
@@ -235,10 +235,12 @@ if constexpr (!Is_Directed::is_directed) {      // IF
             std::unordered_set<Vertex> on_stack;
             // determine that in a chain from parent, not from other chain
 
+            // res.dfn => visited ? { Vertex : Order_t }
+
             // stack? for SCC // std::stack<Vertex> stk;
 
             // #TODO NOT WORK in all instances
-            std::function<void(Vertex)> rec = [&](Vertex pos) {
+            std::function<void(Vertex)> rec = [&](Vertex pos) {     // REC BEGIN ==== ==== |
                 on_stack.insert(pos);                // BEGIN stack
 
                 // if (!res.dfn.count(pos)) // always true
@@ -248,30 +250,56 @@ if constexpr (!Is_Directed::is_directed) {      // IF
                 res.order.push_back(pos);
                 res.dfn[pos] = res.low_link[pos] = counter;
                 ++counter;
-
+                
+                size_t children_counting = 0;
                 auto const& the = data.at(pos);
-                for (auto const& item : the) {
+                for (auto const& item : the) {                          // FOR BEGIN ==== ==== |
                     const Vertex npos = get_npos(item);
+if constexpr (!Is_Directed::is_directed) {  // undirected
+                    // in undirected case, bypass direct-parent
+                    auto const& t = res.parent.find(pos);
+                    if (t == res.parent.end()) return -1;
+                    if (t->second == npos) continue;
+}
                     // iterate all childrens
                     if (res.dfn.find(npos) == res.dfn.end()) {
                         // never visited
                         res.parent[npos] = pos;
                         res.children[pos].push_back(npos);
                         res.tree_edges.push_back({pos, npos}); // tree
-                        rec(npos);                             // recursive
+                        ++children_counting;        //
+                        rec(npos);                                              // CALL recursive
                         res.low_link[pos] = std::min(
                             res.low_link[pos],
                             res.low_link[npos]
                         );
-                    } else if (on_stack.count(npos)) {
-                        // been visited AND is in current DFS stack
-                        // (pos -> npos) is a back-edge
+
+if constexpr (!Is_Directed::is_directed) {  // undirected
+                        // if (u != start && low[v] >= dfn[u])
+                        if (pos != start && res.low_link.at(npos) >= res.dfn.at(pos))
+                            res.articulation_points.insert(pos);
+}
+                    } else {                                                     // been visited
+if constexpr (Is_Directed::is_directed) {   // directed
+                        if (on_stack.count(npos)) {
+                            // AND is in current DFS stack
+                            // (pos -> npos) is a back-edge
+                            res.low_link[pos] = std::min(
+                                res.low_link[pos],
+                                res.dfn[npos]
+                            );
+                        }
+} else {                                                      // undirected
                         res.low_link[pos] = std::min(
                             res.low_link[pos],
                             res.dfn[npos]
                         );
+}
                     }   // NOT in current DFS stack // else { }
                 }
+if constexpr (!Is_Directed::is_directed) {  // root articulation points
+                if (children_counting > 1) res.articulation_points.insert(pos);
+}
                 on_stack.erase(pos);                // END stack
             };
             // exe
@@ -318,13 +346,13 @@ typedef struct {
 */
 
 
-class IGraph {
+class Graph {
     /**
      * @property a non-empty set of vertices and a set of undirected edges.
      * where each edge is a pair of vertices.
      */
 public:
-    virtual ~IGraph() {};
+    virtual ~Graph() {};
     // destructor
 
     //
@@ -398,7 +426,7 @@ protected:
 };
 
 template <typename Storage_P>
-class Graph : public IGraph {
+class Graph_IPL : public IGraph {
 private:
     Storage_P storage;
 public:
@@ -441,9 +469,9 @@ public:
     std::unordered_set<Vertex> getArticulationPoints() {};
 };
 
-using DiLinkedGraph = Graph<Storage<Weight<>::None, Direction::Directed>::Linked>;
-using UndiLinkedGraph = Graph<Storage<Weight<>::None, Direction::Undirected>::Linked>;
-using WDiLinkedGraph = Graph<Storage<Weight<Weight_t>::Type, Direction::Directed>::Linked>;
-using WUndiLinkedGraph = Graph<Storage<Weight<Weight_t>::Type, Direction::Undirected>::Linked>;
+using DiLinkedGraph = Graph_IPL<Storage<Weight<>::None, Direction::Directed>::Linked>;
+using UndiLinkedGraph = Graph_IPL<Storage<Weight<>::None, Direction::Undirected>::Linked>;
+using WDiLinkedGraph = Graph_IPL<Storage<Weight<Weight_t_d>::Type, Direction::Directed>::Linked>;
+using WUndiLinkedGraph = Graph_IPL<Storage<Weight<Weight_t_d>::Type, Direction::Undirected>::Linked>;
 
 #endif // GRAPH_H
