@@ -7,6 +7,7 @@
 #define ALLOW_FS_START_FROM_NOT_EXISTS
 
 #include <exception>
+#include <optional>
 // #include <type_traits>
 #include <vector>
 #include <stack>
@@ -94,12 +95,13 @@ struct Storage {
 
         // { Vertex : { Vertex : Weight_t... }... } / { Vertex : { Vertex... } }
         std::unordered_map<Vertex, NB_t> data;
-        size_t e;                       // numbers of edges
+        size_t e = 0;                       // numbers of edges
 
 
         //
         // func | helper
-        static Vertex get_npos(const auto& item) {
+        template<typename T>
+        static Vertex get_npos(const T& item) {
 if constexpr (WeightType::is_weight)
             return item.first;
 else
@@ -156,6 +158,7 @@ if constexpr (WeightType::is_weight) {       // IF
         // insert edge (u, v) into graph
         void insert_edge(Vertex u, Vertex v, Weight_t w = Weight_t{}) {
             if (u == v) throw std::invalid_argument("(v, v) is illegal");  // if make it possible, must fix the logic
+            // insert_vertex(u);    // possible no exists
             insert_vertex(v);    // possible no exists
             if (!data[u].count(v)) ++e;
 
@@ -234,13 +237,15 @@ if constexpr (!Is_Directed::is_directed) {      // IF
             Order_t counter = 0;
             std::unordered_set<Vertex> on_stack;
             // determine that in a chain from parent, not from other chain
+            // stack for SCC ? // std::stack<Vertex> stk;
 
             // res.dfn => visited ? { Vertex : Order_t }
 
-            // stack? for SCC // std::stack<Vertex> stk;
 
-            // #TODO NOT WORK in all instances
-            std::function<void(Vertex)> rec = [&](Vertex pos) {     // REC BEGIN ==== ==== |
+            // resolved //~~ # TO DO NOT WORK in all instances~~
+            // rec function
+            std::function<void(Vertex, std::optional<Vertex>)> rec  // REC BEGIN ==== ==== |
+            = [&](Vertex pos, std::optional<Vertex> par) {  // par = std::nullopt
                 on_stack.insert(pos);                // BEGIN stack
 
                 // if (!res.dfn.count(pos)) // always true
@@ -257,9 +262,7 @@ if constexpr (!Is_Directed::is_directed) {      // IF
                     const Vertex npos = get_npos(item);
 if constexpr (!Is_Directed::is_directed) {  // undirected
                     // in undirected case, bypass direct-parent
-                    auto const& t = res.parent.find(pos);
-                    if (t == res.parent.end()) return -1;
-                    if (t->second == npos) continue;
+                    if (par.has_value() && par.value() == npos) continue;
 }
                     // iterate all childrens
                     if (res.dfn.find(npos) == res.dfn.end()) {
@@ -268,7 +271,7 @@ if constexpr (!Is_Directed::is_directed) {  // undirected
                         res.children[pos].push_back(npos);
                         res.tree_edges.push_back({pos, npos}); // tree
                         ++children_counting;        //
-                        rec(npos);                                              // CALL recursive
+                        rec(npos, pos);                                           // CALL recursive
                         res.low_link[pos] = std::min(
                             res.low_link[pos],
                             res.low_link[npos]
@@ -276,7 +279,7 @@ if constexpr (!Is_Directed::is_directed) {  // undirected
 
 if constexpr (!Is_Directed::is_directed) {  // undirected
                         // if (u != start && low[v] >= dfn[u])
-                        if (pos != start && res.low_link.at(npos) >= res.dfn.at(pos))
+                        if (par.has_value() && res.low_link.at(npos) >= res.dfn.at(pos))
                             res.articulation_points.insert(pos);
 }
                     } else {                                                     // been visited
@@ -298,18 +301,18 @@ if constexpr (Is_Directed::is_directed) {   // directed
                     }   // NOT in current DFS stack // else { }
                 }
 if constexpr (!Is_Directed::is_directed) {  // root articulation points
-                if (children_counting > 1) res.articulation_points.insert(pos);
+                if (!par.has_value() && children_counting > 1) res.articulation_points.insert(pos);
 }
                 on_stack.erase(pos);                // END stack
-            };
+            };                                                          // END REC
             // exe
-            rec(start);
+            rec(start, std::nullopt);
             for (auto const& v : data) {
-                // for isolated
+                // for isolated => forest
                 if (!res.dfn.count(v.first)) {
                     res.components.emplace_back();
                     components_ptr = &res.components.back();
-                    rec(v.first);
+                    rec(v.first, std::nullopt);
                 }
             }
             return res;
@@ -426,7 +429,7 @@ protected:
 };
 
 template <typename Storage_P>
-class Graph_IPL : public IGraph {
+class Graph_IPL : public Graph {
 private:
     Storage_P storage;
 public:
