@@ -40,10 +40,18 @@ typedef struct {
 
     // articulation points | { Vertex... }
     std::unordered_set<Vertex> articulation_points;
-    // using in Undirection Graph
+    // using in Undirection-Graph only
 
-    // components | [ [ Vertex... ]... ]
+    // connected components | [ [ Vertex... ]... ]
     std::vector<std::vector<Vertex>> components;
+    // for Undirected-Graph
+
+    // BCC | [ [ Edge... ]... ]
+    std::vector<std::vector<Edge>> bcc_edges;
+    // for Undirected-Graph
+
+    // SCC
+    // for Directed-Graph
 
     // spanning trees (allowed forest)
     std::vector<Edge> tree_edges;            // T
@@ -220,6 +228,7 @@ if constexpr (!Is_Directed::is_directed) {      // IF
         //
         // algorithm
 
+        // #TODO move to namespace, not in Graph/Storage class/struct anymore
         DFS_Result getDFS(Vertex start) const {
             if (is_empty()) return {};
 
@@ -349,6 +358,7 @@ typedef struct {
 */
 
 
+// virtual basic class | for pointer using only
 class Graph {
     /**
      * @property a non-empty set of vertices and a set of undirected edges.
@@ -429,42 +439,42 @@ protected:
 };
 
 template <typename Storage_P>
-class Graph_IPL : public Graph {
+class BasicGraph : public Graph {
 private:
     Storage_P storage;
 public:
 
     //
     // getter
-    bool is_empty() const override { return storage.is_empty(); }
-    size_t number_of_vertices() const override { return storage.number_of_vertices(); }
-    size_t number_of_edges() const override { return storage.number_of_edges(); }
-    size_t degree(Vertex u) const override { return storage.degree(u); }
-    bool exists_edge(Vertex u, Vertex v) const override { return storage.exists_edge(u, v); }
+    bool is_empty() const override { return storage.is_empty(); };
+    size_t number_of_vertices() const override { return storage.number_of_vertices(); };
+    size_t number_of_edges() const override { return storage.number_of_edges(); };
+    size_t degree(Vertex u) const override { return storage.degree(u); };
+    bool exists_edge(Vertex u, Vertex v) const override { return storage.exists_edge(u, v); };
 
     //
     // modify
 
-    void insert_vertex(Vertex v) override { storage.insert_vertex(v); }
+    void insert_vertex(Vertex v) override { storage.insert_vertex(v); };
     void insert_edge(Vertex u, Vertex v) override {
         storage.insert_edge(u, v);
-    }
+    };
     void insert_edge(Vertex u, Vertex v, typename Storage_P::Weight_t w) {
         storage.insert_edge(u, v, w);
-    }
-    void delete_vertex(Vertex v) override { storage.delete_vertex(v); }
-    void delete_edge(Vertex u, Vertex v) override { storage.delete_edge(u, v); }
+    };
+    void delete_vertex(Vertex v) override { storage.delete_vertex(v); };
+    void delete_edge(Vertex u, Vertex v) override { storage.delete_edge(u, v); };
 
     //
     // algorithm
 
-    // #TODO here
-    DFS_Result getDFS(Vertex start) const override {}
+    // # TO DO here
+    DFS_Result getDFS(Vertex start) const override { return storage->getDFS(start); };
 
     DFS_Result getDFS() const override {
         if (is_empty()) return {};
         return getDFS(storage.data.begin()->first);
-    }
+    };
 
     void getBFS(Vertex start) override {}
     
@@ -472,9 +482,12 @@ public:
     std::unordered_set<Vertex> getArticulationPoints() {};
 };
 
-using DiLinkedGraph = Graph_IPL<Storage<Weight<>::None, Direction::Directed>::Linked>;
-using UndiLinkedGraph = Graph_IPL<Storage<Weight<>::None, Direction::Undirected>::Linked>;
-using WDiLinkedGraph = Graph_IPL<Storage<Weight<Weight_t_d>::Type, Direction::Directed>::Linked>;
-using WUndiLinkedGraph = Graph_IPL<Storage<Weight<Weight_t_d>::Type, Direction::Undirected>::Linked>;
+//
+// classes
+
+using DiLinkedGraph = BasicGraph<Storage<Weight<>::None, Direction::Directed>::Linked>;
+using UndiLinkedGraph = BasicGraph<Storage<Weight<>::None, Direction::Undirected>::Linked>;
+using WDiLinkedGraph = BasicGraph<Storage<Weight<Weight_t_d>::Type, Direction::Directed>::Linked>;
+using WUndiLinkedGraph = BasicGraph<Storage<Weight<Weight_t_d>::Type, Direction::Undirected>::Linked>;
 
 #endif // GRAPH_H
