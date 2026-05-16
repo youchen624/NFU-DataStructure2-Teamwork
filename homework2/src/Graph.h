@@ -21,6 +21,13 @@ using Order_t = size_t;
 typedef struct {
     Vertex u, v;
 } Edge;
+
+template <typename T = double>
+struct WEdge {
+    Vertex u, v;
+    T weigh;
+};
+
 // DFS results (for analyze)
 typedef struct {
     // sequence of Vertices (i -> Vertex) | [ Vertex... ]
@@ -170,7 +177,7 @@ if constexpr (WeightType::is_weight) {       // IF
             insert_vertex(v);    // possible no exists
             if (!data[u].count(v)) ++e;
 
-            // helper
+            // helper func
             auto add_edge = [&](Vertex from, Vertex to, Weight_t weight) {
 if constexpr (WeightType::is_weight)
                 data[from][to] = weight;
@@ -248,6 +255,12 @@ if constexpr (!Is_Directed::is_directed) {      // IF
             // determine that in a chain from parent, not from other chain
             // stack for SCC ? // std::stack<Vertex> stk;
 
+            using bcc_stack_t = std::conditional_t<
+                WeightType::is_weight,
+                WEdge<Weight_t>,
+                Edge
+            >;
+
             // res.dfn => visited ? { Vertex : Order_t }
 
 
@@ -274,7 +287,8 @@ if constexpr (!Is_Directed::is_directed) {  // undirected
                     if (par.has_value() && par.value() == npos) continue;
 }
                     // iterate all childrens
-                    if (res.dfn.find(npos) == res.dfn.end()) {
+                    auto const& dfn_npos = res.dfn.find(npos);
+                    if (dfn_npos == res.dfn.end()) {
                         // never visited
                         res.parent[npos] = pos;
                         res.children[pos].push_back(npos);
@@ -285,6 +299,12 @@ if constexpr (!Is_Directed::is_directed) {  // undirected
                             res.low_link[pos],
                             res.low_link[npos]
                         );
+                        // #TODO #HERE
+                        // if never visited, push Edge{u, v}
+                        // after rec(u,v) (u -> v)
+                        // if low(v) >= dfn(u) meaning exist bcc
+                        // start pushing from bcc_stack
+                        // until edge {u, v}
 
 if constexpr (!Is_Directed::is_directed) {  // undirected
                         // if (u != start && low[v] >= dfn[u])
@@ -350,12 +370,6 @@ std::vector<std::vector<Vertex>> const DiLinkedGraph::getCComponents() const {
 
 
 
-/*  // useless
-typedef struct {
-    Vertex u, v;
-    Weight_t weigh;
-} WEdge;
-*/
 
 
 // virtual basic class | for pointer using only
