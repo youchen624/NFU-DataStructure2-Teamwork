@@ -6,6 +6,7 @@
 // disable it if you want NOT allow call with a NOT existing Vertex
 #define ALLOW_FS_START_FROM_NOT_EXISTS
 
+// #includes
 #include <type_traits>
 #include <exception>
 #include <stdexcept>
@@ -13,17 +14,18 @@
 #include <functional>
 #include <vector>
 #include <stack>
+#include <queue>
 #include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
 
 using Vertex = int;
-using Weight_t_d = double;
+using Weight_t = double;
 using Order_t = size_t;
 
-typedef struct {
+struct Edge {
     Vertex u, v;
-    Weight_t_d weight = 0.0;
+    Weight_t weight = 0.0;
 
     bool operator<(const Edge& that) const {
         return this->weight < that.weight;
@@ -31,7 +33,7 @@ typedef struct {
     bool operator>(const Edge& that) const {
         return this->weight > that.weight;
     }
-} Edge;
+};
 
 /*      // DELETED | MOVE TO Edge
 template <typename T = double>
@@ -79,14 +81,21 @@ typedef struct {
 } DFS_Result;
 
 typedef struct {
+    // sequence of Vertices (i -> Vertex) | [ Vertex... ]
     std::vector<Vertex> order;
-    std::unordered_map<Vertex, Vertex> parent;
-    std::unordered_map<Vertex, std::vector<Vertex>> children;
+
+    // order of each Vertex (Vertex -> order) | { Vertex : Order_t... }
+    std::unordered_map<Vertex, Order_t> bfn;
+
+    // each Vertices' parent | { Vertext : Vertex... }
+    // std::unordered_map<Vertex, Vertex> parent;
+    // each Vertices' childrens | { Vertext : [ Vertex... ]... }
+    // std::unordered_map<Vertex, std::vector<Vertex>> children;
 } BFS_Result;
 
 // COMPONENTS | EMPTY
-struct Empty { };
-// #TODO REMOVE Empty; force all Edges have weight
+// struct Empty { };
+// # TO DO REMOVE Empty; force all Edges have weight
 
 // COMPONENTS | directed ?
 struct Direction {
@@ -95,14 +104,14 @@ struct Direction {
 };
 
 // COMPONENTS | weight ?
-template <typename T = double>
+// template <typename T = double>
 struct Weight {
     struct Type {
-        using ValueType = T;
+        // using ValueType = T;
         static constexpr bool is_weight = true;
     };
     struct None {
-        using ValueType = Empty;
+        // using ValueType = Empty;
         static constexpr bool is_weight = false;
     };
 };
@@ -112,7 +121,7 @@ template <typename WeightType, typename Is_Directed>
 struct Storage {
     struct Linked {             // LinkedList
         // static constexpr bool is_weight = WeighType::is_weight;
-        using Weight_t = WeightType::ValueType;
+        // using Weight_t = WeightType::ValueType;
         using NB_t = std::conditional_t<    // V -> nb鄰居
             WeightType::is_weight,   // ?:
             std::unordered_map<Vertex, Weight_t>,   // { V : W }
@@ -135,6 +144,14 @@ if constexpr (WeightType::is_weight)
             return item.first;
 else
             return item;
+        };
+
+        Edge get_edge(const Vertex& u, const Vertex& v) { // , const Weight_t& w // auto get
+if constexpr (WeightType::is_weight) {         // weight
+            return Edge{pos, npos, data.at(pos).at(npos)};
+} else {                                                          // non-weight
+            return Edge{pos, npos};
+}
         };
 
 
@@ -187,7 +204,7 @@ if constexpr (WeightType::is_weight) {       // IF
         // insert edge (u, v) into graph
         void insert_edge(Vertex u, Vertex v, Weight_t w = Weight_t{}) {
             if (u == v) throw std::invalid_argument("(v, v) is illegal");  // if make it possible, must fix the logic
-            // insert_vertex(u);    // possible no exists
+            insert_vertex(u);    // possible no exists  // could be disappeared, bc data[u] is able to auto-insert
             insert_vertex(v);    // possible no exists
             if (!data[u].count(v)) ++e;
 
@@ -257,6 +274,7 @@ if constexpr (!Is_Directed::is_directed) {      // IF
             if (data.find(start) == data.end())
 #ifndef ALLOW_FS_START_FROM_NOT_EXISTS
                 return {};                               // END
+                // or throw Error
 #else
                 start = data.begin()->first;    // get a RND one
 #endif
@@ -306,13 +324,17 @@ if constexpr (!Is_Directed::is_directed) {  // undirected
 }
                     // iterate all childrens
                     auto const& dfn_npos = res.dfn.find(npos);
-                    if (dfn_npos == res.dfn.end()) {
+                    if (dfn_npos == res.dfn.end()) {      // never visited | #### #### | #### #### |
 
-                        // never visited
                         res.parent[npos] = pos;
                         res.children[pos].push_back(npos);
                         ++children_counting;        //
+
+                        Edge e = get_edge(pos, npos);
+                        res.tree_edges.push_back(e);            // spanning tree (forest)
 if constexpr (!Is_Directed::is_directed) {  // undirected
+                        bcc_stack.push(e);
+    /*
     if constexpr (WeightType::is_weight) {         // weight
                         Edge e = Edge{pos, npos, data.at(pos).at(npos)};
                         res.tree_edges.push_back(e); // tree
@@ -322,6 +344,7 @@ if constexpr (!Is_Directed::is_directed) {  // undirected
                         res.tree_edges.push_back(e); // tree
                         bcc_stack.push(e);
     }
+    */
 }
                         //
                         //                                                // CALL recursive | BEGIN
@@ -362,13 +385,13 @@ if constexpr (!Is_Directed::is_directed) {  // undirected
                             // res.articulation_points.insert(pos);
 }
 
-                    } else {                                                     // been visited
+                    } else {                           // been visited | #### #### | #### #### |
 
 if constexpr (Is_Directed::is_directed) {   // directed
                         if (on_stack.count(npos)) {
                             // AND is in current DFS stack
                             // (pos -> npos) is a back-edge
-                            res.low_link[pos] = std::min(
+                            if (res.dfn[npos] < res.dfn[pos]) res.low_link[pos] = std::min(
                                 res.low_link[pos],
                                 res.dfn[npos]
                             );
@@ -380,11 +403,14 @@ if constexpr (Is_Directed::is_directed) {   // directed
                         );
 
                         if (res.dfn[npos] < res.dfn[pos]) {
+                            bcc_stack.push(get_edge(pos, npos));
+                            /*
                             if constexpr (WeightType::is_weight) {
                                 bcc_stack.push(Edge{pos, npos, data.at(pos).at(npos)});
                             } else {
                                 bcc_stack.push(Edge{pos, npos});
                             }
+                            */
                         }
 }
 
@@ -409,6 +435,49 @@ if constexpr (!Is_Directed::is_directed) {  // root articulation points
         };
 
 
+
+        BFS_Result getBFS(Vertex start) const {
+            if (is_empty()) return {};
+
+            // start from NOT exists
+            if (data.find(start) == data.end())
+#ifndef ALLOW_FS_START_FROM_NOT_EXISTS
+                return {};                               // END
+#else
+                start = data.begin()->first;    // get a RND one
+#endif
+            BFS_Result res;
+            Order_t counter = 0;
+            // res.bfn -> visited
+
+            // in queueing
+            std::queue<Vertex> queueing;
+            const auto q_push = [&](const Vertex& p) {
+                queueing.push(p);
+                res.order.push_back(p);
+                res.bfn[p] = counter;   // is a visited mark same time
+                ++counter;
+            };
+
+            // queueing.push(start);
+            q_push(start);
+            
+            while (!queueing.empty()) {
+                Vertex pos = queueing.front();
+                queueing.pop();
+                // res.order.push_back(pos);
+                // res.bfn.insert(pos, counter);
+                // ++counter;
+
+                for (auto const& next : data.at(pos)) {
+                    Vertex npos = get_npos(next);
+                    if (res.bfn.count(npos)) continue;
+                    q_push(npos);
+                };
+            }
+
+            return res;
+        };
 /*
 DFS_Result DiLinkedGraph::getDFS() const {
     if (is_empty()) return {};
@@ -423,7 +492,7 @@ std::vector<std::vector<Vertex>> const DiLinkedGraph::getCComponents() const {
     };
     struct Matrix {
         static constexpr bool is_weight = WeightType::is_weight;
-        using Weight_t = WeightType::ValueType;
+        // using Weight_t = WeightType::ValueType;
     };
 };
 
@@ -470,6 +539,11 @@ public:
     virtual void insert_edge(Vertex u, Vertex v) = 0;
     // insert edge (u, v) into graph
 
+    virtual void insert_edge(Vertex u, Vertex v, Weight_t w) = 0;
+    // insert edge (u, v) (weight) into graph
+
+    virtual void insert_edge(Edge e) = 0;
+
     virtual void delete_vertex(Vertex v) = 0;
     // delete v and all edges incident to it
 
@@ -484,8 +558,8 @@ public:
     virtual DFS_Result getDFS() const = 0;
     
     // get Breadth-First Search
-    virtual void getBFS(Vertex start) = 0;
-    // virtual void getBFS(Vertex start, std::vector<Vertex>& components) = 0; // for saving the order
+    virtual BFS_Result getBFS(Vertex start) const = 0;
+    virtual BFS_Result getBFS() const = 0;
 
     // get Connected Components
     virtual std::vector<std::vector<Vertex>> const getCComponents(const DFS_Result &dfs) const {
@@ -534,38 +608,55 @@ public:
     void insert_edge(Vertex u, Vertex v) override {
         storage.insert_edge(u, v);
     };
-    void insert_edge(Vertex u, Vertex v, typename Storage_P::Weight_t w) {
+    void insert_edge(Vertex u, Vertex v, Weight_t w) override {
         storage.insert_edge(u, v, w);
+    };
+    void insert_edge(Edge e) override {
+        storage.insert_edge(e.u, e.v, e.weight);
     };
     void delete_vertex(Vertex v) override { storage.delete_vertex(v); };
     void delete_edge(Vertex u, Vertex v) override { storage.delete_edge(u, v); };
 
     //
     // algorithm
+    // #TODO move algorithm from Graph class to namespace,
+    // it should not be a member function
+    // splice getDFS to DFS with a callback to collect data
 
-    // # TO DO here
-    DFS_Result getDFS(Vertex start) const override { return storage.getDFS(start); };
-
+    // get DFS
+    DFS_Result getDFS(Vertex start) const override {
+        return storage.getDFS(start);
+    };
     DFS_Result getDFS() const override {
         if (is_empty()) return {};
         return getDFS(storage.data.begin()->first);
     };
 
-    // #TODO BFS instance
-    void getBFS(Vertex start) override {}
+    // get BFS
+    BFS_Result getBFS(Vertex start) override {
+        return storage.getBFS(start);
+    };
+    BFS_Result getBFS() override {
+        if (is_empty()) return {};
+        return getBFS(storage.data.begin()->first);
+    };
     
-    std::vector<std::vector<Edge>> getBCComponents(const DFS_Result& dfs) const override { return dfs.bcc_edges; }
+    std::vector<std::vector<Edge>> getBCComponents(const DFS_Result& dfs) const override { return dfs.bcc_edges; };
     std::unordered_set<Vertex> getArticulationPoints(const DFS_Result& dfs) {
         return dfs.articulation_points;
     };
 };
 
 //
+// algorithm
+// #TODO
+
+//
 // classes
 
-using DiLinkedGraph = BasicGraph<Storage<Weight<>::None, Direction::Directed>::Linked>;
-using UndiLinkedGraph = BasicGraph<Storage<Weight<>::None, Direction::Undirected>::Linked>;
-using WDiLinkedGraph = BasicGraph<Storage<Weight<Weight_t_d>::Type, Direction::Directed>::Linked>;
-using WUndiLinkedGraph = BasicGraph<Storage<Weight<Weight_t_d>::Type, Direction::Undirected>::Linked>;
+using DiLinkedGraph = BasicGraph<Storage<Weight::None, Direction::Directed>::Linked>;
+using UndiLinkedGraph = BasicGraph<Storage<Weight::None, Direction::Undirected>::Linked>;
+using WDiLinkedGraph = BasicGraph<Storage<Weight::Type, Direction::Directed>::Linked>;
+using WUndiLinkedGraph = BasicGraph<Storage<Weight::Type, Direction::Undirected>::Linked>;
 
 #endif // GRAPH_H
