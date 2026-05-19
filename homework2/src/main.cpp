@@ -1,5 +1,6 @@
 #include <iostream>
 #include "Graph.h"
+using namespace yGraph;
 
 void show_dfn_res(const DFS_Result& dfs) {
     

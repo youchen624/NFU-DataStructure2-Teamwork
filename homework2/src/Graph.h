@@ -1,12 +1,13 @@
 #ifndef GRAPH_H
 #define GRAPH_H
 #define LL long long
+#define ID_t size_t
 
 // allow getDFS(Vertext v) and getBFS(Vertex v) that v NOT includes in Graph
 // disable it if you want NOT allow call with a NOT existing Vertex
 #define ALLOW_FS_START_FROM_NOT_EXISTS
 
-// #includes
+// all #includes
 #include <type_traits>
 #include <exception>
 #include <stdexcept>
@@ -18,9 +19,19 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
+#include <limits>
+#include <cmath>
+
+
+namespace yGraph {  // namespace yGraph
+
 
 using Vertex = int;
+// if use others not double, have to figure out with "INF" problem
 using Weight_t = double;
+// is weight infinity
+inline constexpr bool is_inf(Weight_t w) noexcept { return std::isinf(w); };
+inline constexpr Weight_t get_inf() noexcept { return std::numeric_limits<Weight_t>::infinity(); };
 using Order_t = size_t;
 
 struct Edge {
@@ -35,13 +46,6 @@ struct Edge {
     }
 };
 
-/*      // DELETED | MOVE TO Edge
-template <typename T = double>
-struct WEdge {
-    Vertex u, v;
-    T weigh;
-};
-*/
 
 // DFS results (for analyze)
 typedef struct {
@@ -92,6 +96,14 @@ typedef struct {
     // each Vertices' childrens | { Vertext : [ Vertex... ]... }
     // std::unordered_map<Vertex, std::vector<Vertex>> children;
 } BFS_Result;
+
+namespace {     // namespace null
+
+struct FS_callback {
+    void operator()(Vertex, Vertex, Vertex) const {};
+};
+
+};          // namespace null
 
 // COMPONENTS | EMPTY
 // struct Empty { };
@@ -146,7 +158,7 @@ else
             return item;
         };
 
-        Edge get_edge(const Vertex& u, const Vertex& v) { // , const Weight_t& w // auto get
+        Edge get_edge(const Vertex& pos, const Vertex& npos) { // , const Weight_t& w // auto get
 if constexpr (WeightType::is_weight) {         // weight
             return Edge{pos, npos, data.at(pos).at(npos)};
 } else {                                                          // non-weight
@@ -187,6 +199,19 @@ if constexpr (Is_Directed::is_directed) {       // IF
             auto the = data.find(u);
             if (the == data.end()) return false;
             else return the->second.count(v);
+        };
+
+        // get all edges in Graph
+        std::vector<Edge> getEdges() const {
+            std::vector<Edge> edges;
+            for (auto const& [pos, nbs] : data) {
+                for (auto const& item : nbs) {
+                    Vertex npos = get_npos(item);
+                    if constexpr (!Is_Directed::is_directed) if (pos > npos) continue;
+                    edges.push_back(get_edge(pos, npos));
+                }
+            }
+            return edges;
         };
 
         //
@@ -487,14 +512,147 @@ DFS_Result DiLinkedGraph::getDFS() const {
 std::vector<std::vector<Vertex>> const DiLinkedGraph::getCComponents() const {
     return getDFS().components;
 };
-        */
+*/
 
     };
     struct Matrix {
         static constexpr bool is_weight = WeightType::is_weight;
         // using Weight_t = WeightType::ValueType;
+
+        // using id
+        std::vector<std::vector<Weight_t>> data;    // [ [ w ] ] | [u][v] = w;
+        std::unordered_map<Vertex, ID_t> id;  // { Vertex : id } | v -> id
+        std::vector<Vertex> vid;                        // { id : Vertex }  | id -> v
+
+        size_t e = 0;   // numbers of edges
+
+        //
+        // func | helper
+
+        //
+        // func | getter
+
+        // return true if graph has no vertices
+        bool is_empty() const { return !data.size(); };
+
+        // return number of vertices in the graph
+        size_t number_of_vertices() const { return data.size(); };
+
+        // return number of edges in the graph
+        size_t number_of_edges() const { return e; };
+
+        // return number of edges incident to vertex u
+        size_t degree(Vertex u) const {
+            // #TODO degree matrix
+        };
+
+        // return true if graph has the edge (u, v)
+        bool exists_edge(Vertex u, Vertex v) const {
+            if (u == v) return false;
+            if ((!id.count(u)) || (!id.count(v))) return false;
+            const ID_t pos = id.at(u);
+            const ID_t npos = id.at(v);
+            if (is_inf(data[pos][npos])) return false;
+            else return true;
+        };
+        bool exists_edge(Edge e) const { return exists_edge(e.u, e.v); };
+
+        // get all edges in Graph
+        std::vector<Edge> getEdges() const {
+            std::vector<Edge> edges;
+            // for (auto const& [column, rows] : data) {
+            for (size_t i_c = 0; i_c < data.size(); ++i_c) {
+                /* column means col_id ; row means row_id
+                // rows is not real rows, it is a [ ] in [ ]
+                * c c c c
+                r x x x X
+                r x x x X
+                r x x x X
+                r x x x X
+                c, r are id
+                X are in same [ ]
+                */
+                Vertex pos = vid[i_c];
+                // for (auto const& [row, weight] : rows) {
+                for (size_t i_r = 0; i_r < data.size(); ++i_r) {
+                    Vertex npos = vid[i_r];
+                    if (pos == npos) continue;      // self edge
+                    Weight_t weight = data[i_c][i_r];
+                    if (is_inf(weight)) continue;       // edge not exists
+                    if constexpr (!Is_Directed::is_directed) if (pos > npos) continue;
+                    edges.push_back({pos, npos, weight});
+                }
+            }
+            return edges;
+        };
+
+        //
+        // func | modify
+        
+        // insert vertex v into graph; v has no incident edges
+        void insert_vertex(Vertex v) {
+            if (id.count(v)) return;    // already exists
+            const ID_t i = data.size();
+            id.insert({v, i});  // start from index 0
+            vid.push_back(v);
+            const Weight_t inf_w = get_inf();
+            for (auto& rows : data) {
+                rows.push_back(inf_w);
+            }
+            data.emplace_back(i+1, inf_w);
+        };
+
+        // insert edge (u, v) into graph
+        void insert_edge(Vertex u, Vertex v, Weight_t w = Weight_t{}) {
+            if (u == v) throw std::invalid_argument("(v, v) is illegal");  // if make it possible, must fix the logic
+            insert_vertex(u);    // possible no exists
+            insert_vertex(v);    // possible no exists
+
+            const ID_t pos = id.at(u);
+            const ID_t npos = id.at(v);
+            if (is_inf(data[pos][npos])) ++e;
+            data[pos][npos] = w;
+if constexpr (!Is_Directed::is_directed)
+            data[npos][pos] = w;
+        }
+        
+        // delete v and all edges incident to it
+        void delete_vertex(Vertex v) {
+            // find it -> change as last -> pop &&-> set [i][i] = INF &&-> update id and vid
+            auto it = id.find(v);   // it->second == be d id
+            if (it == id.end()) return;  // not exists
+            const Vertex lv = vid.back();  // last v
+            for (size_t i = 0; i + 1 < data.size(); ++i) {  // bypass last one
+                if (!is_inf(data[it->second][i])) --e;
+if constexpr (Is_Directed::is_directed)
+                if (!is_inf(data[i][it->second])) --e;
+                data[it->second][i] = data[data.size() - 1][i];
+                data[i][it->second] = data[i][data.size() - 1];
+                data[i].pop_back();
+            }
+            data.pop_back();
+            // id vid
+            vid[it->second] = lv; // id -> v
+            id[lv] = it->second; // v -> id
+            id.erase(it);
+            vid.pop_back();
+        };
+
+        // delete edge (u, v) from the graph
+        void delete_edge(Vertex u, Vertex v) {
+            if ((!id.count(u)) || (!id.count(v))) return; // a Vertex not exists => edge impossible exists
+            const ID_t pos = id.at(u);
+            const ID_t npos = id.at(v);
+            if (is_inf(data[pos][npos])) return;         // edge not exists
+            data[pos][npos] = get_inf();
+if constexpr (!Is_Directed::is_directed)
+            data[npos][pos] = get_inf();
+            --e;
+        };
     };
+    // #TODO fix matrix data[i][i] = INF problem in Floyd-Warshall case
 };
+
 
 
 
@@ -529,6 +687,8 @@ public:
 
     virtual bool exists_edge(Vertex u, Vertex v) const = 0;
     // return true if graph has the edge (u, v)
+
+    virtual std::vector<Edge> getEdges() const = 0;
 
     //
     // modify-type
@@ -601,6 +761,8 @@ public:
     size_t degree(Vertex u) const override { return storage.degree(u); };
     bool exists_edge(Vertex u, Vertex v) const override { return storage.exists_edge(u, v); };
 
+    std::vector<Edge> getEdges() const override { return storage.getEdges(); };
+
     //
     // modify
 
@@ -633,10 +795,10 @@ public:
     };
 
     // get BFS
-    BFS_Result getBFS(Vertex start) override {
+    BFS_Result getBFS(Vertex start) const override {
         return storage.getBFS(start);
     };
-    BFS_Result getBFS() override {
+    BFS_Result getBFS() const override {
         if (is_empty()) return {};
         return getBFS(storage.data.begin()->first);
     };
@@ -648,10 +810,6 @@ public:
 };
 
 //
-// algorithm
-// #TODO
-
-//
 // classes
 
 using DiLinkedGraph = BasicGraph<Storage<Weight::None, Direction::Directed>::Linked>;
@@ -659,4 +817,74 @@ using UndiLinkedGraph = BasicGraph<Storage<Weight::None, Direction::Undirected>:
 using WDiLinkedGraph = BasicGraph<Storage<Weight::Type, Direction::Directed>::Linked>;
 using WUndiLinkedGraph = BasicGraph<Storage<Weight::Type, Direction::Undirected>::Linked>;
 
+using WDiMatrixGraph = BasicGraph<Storage<Weight::Type, Direction::Directed>::Matrix>;
+using DiMatrixGraph = BasicGraph<Storage<Weight::Type, Direction::Directed>::Matrix>;
+using WUndiMatrixGraph = BasicGraph<Storage<Weight::None, Direction::Undirected>::Matrix>;
+using UndiMatrixGraph = BasicGraph<Storage<Weight::None, Direction::Undirected>::Matrix>;
+
+
+
+//
+// algorithm
+// #TODO
+
+template<typename TGraph,
+                typename F = FS_callback,
+                typename std::enable_if<std::is_base_of_v<Graph, TGraph>, int>::type = 0>
+// requires std::derived_from<TGraph, Graph>;
+DFS_Result getDFS(
+    const TGraph& graph,
+    const Vertex start,
+    const F& callback = FS_callback{}
+    // const std::function<void(Vertex, Vertex, Vertex)>& callback
+) {
+    // #TODO DFS is a friend with Graph(storage)
+};
+
+// disjoint set union
+class DSU {
+private:
+    std::unordered_map<Vertex, Vertex> data;
+
+public:
+    // dsu get
+    Vertex find(Vertex v) {
+        if (!data.count(v))
+            return data[v] = v;
+        if (data[v] == v)
+            return v;
+        return data[v] = find(data[v]);
+    }
+
+    // a hack method
+    bool unite(Vertex u, Vertex v) {
+        u = find(u);
+        v = find(v);
+
+        if (u == v) return false;
+
+        data[v] = u;
+        return true;
+    };
+    bool unite(Edge e) {
+        return unite(e.u, e.v);
+    };
+};
+
+// matrix type not found #TODO
+WUndiLinkedGraph getMST_K(const WUndiLinkedGraph& graph) {
+    WUndiLinkedGraph res;
+    std::vector<Edge> edges = graph.getEdges();
+    std::sort(edges.begin(), edges.end()); // <
+    DSU dsu;
+
+    for (const Edge& edge : edges) {
+        if (dsu.unite(edge))
+            res.insert_edge(edge);
+    }
+
+    return res;
+};
+
+}; // namespace yGraph
 #endif // GRAPH_H
