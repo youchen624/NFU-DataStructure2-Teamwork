@@ -600,6 +600,7 @@ std::vector<std::vector<Vertex>> const DiLinkedGraph::getCComponents() const {
                 rows.push_back(inf_w);
             }
             data.emplace_back(i+1, inf_w);
+            data[i][i] = 0; // self = 0
         };
 
         // insert edge (u, v) into graph
@@ -619,7 +620,7 @@ if constexpr (!Is_Directed::is_directed)
         // delete v and all edges incident to it
         void delete_vertex(Vertex v) {
             // find it -> change as last -> pop &&-> set [i][i] = INF &&-> update id and vid
-            auto it = id.find(v);   // it->second == be d id
+            auto it = id.find(v);   // it->second == be d id // old index
             if (it == id.end()) return;  // not exists
             const Vertex lv = vid.back();  // last v
             for (size_t i = 0; i + 1 < data.size(); ++i) {  // bypass last one
@@ -634,8 +635,11 @@ if constexpr (Is_Directed::is_directed)
             // id vid
             vid[it->second] = lv; // id -> v
             id[lv] = it->second; // v -> id
-            id.erase(it);
             vid.pop_back();
+            
+            if (data.size() > it->second)
+                data[it->second][it->second] = 0;
+            id.erase(it);
         };
 
         // delete edge (u, v) from the graph
