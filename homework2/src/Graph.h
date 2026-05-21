@@ -624,9 +624,11 @@ if constexpr (!Is_Directed::is_directed)
             if (it == id.end()) return;  // not exists
             const Vertex lv = vid.back();  // last v
             for (size_t i = 0; i + 1 < data.size(); ++i) {  // bypass last one
-                if (!is_inf(data[it->second][i])) --e;
+                if (it->second != i) {  // do not count [i][i]
+                    if (!is_inf(data[it->second][i])) --e;
 if constexpr (Is_Directed::is_directed)
-                if (!is_inf(data[i][it->second])) --e;
+                    if (!is_inf(data[i][it->second])) --e;
+                }
                 data[it->second][i] = data[data.size() - 1][i];
                 data[i][it->second] = data[i][data.size() - 1];
                 data[i].pop_back();
@@ -636,6 +638,7 @@ if constexpr (Is_Directed::is_directed)
             vid[it->second] = lv; // id -> v
             id[lv] = it->second; // v -> id
             vid.pop_back();
+            // #TODO confirm no bug
             
             if (data.size() > it->second)
                 data[it->second][it->second] = 0;
