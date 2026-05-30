@@ -17,6 +17,10 @@
 
 ## 程式實作
 
+在Matrix中，刪除一個頂點，同時顧及vector特性，我們先將最後一項複製到待刪除的位置，隨後將最後一項刪除(`vector::pop_back()`)，同時修改自身邊及id/value map。
+
+![圖片](../.img/DS2-HW2-Matrix_deleting_Vertex.png)
+
 本次 `Graph.h` :
 
 ```h
