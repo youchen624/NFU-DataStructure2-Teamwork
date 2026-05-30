@@ -227,6 +227,10 @@ if constexpr (Is_Directed::is_directed) {       // IF
         std::vector<Vertex> getNbs(Vertex u) const {
             if (!data.count(u)) return {};
             vector<Vertex> res;
+            res.reserve(data.size());
+            for (auto const item : data.at(u)) {
+                res.push_back(get_wv(item));
+            }
             return res;
         };
 
@@ -633,7 +637,14 @@ if constexpr (Is_Directed::is_directed)
         std::vector<Vertex> getNbs(Vertex u) const {
             if (!data.count(u)) return {};
             vector<Vertex> res;
+            const ID_t ui = id.at(u);
+            // res.reserve(data.size());
+            for (size_t i = 0; i < data.size(); ++i) {
+                if ((!is_inf(data[ui][i])) && ui != i)
+                    res.push_back(data[ui][i]);
+            }
             return res;
+            // return [x...] that all (u -> x)
         };
 
         //
