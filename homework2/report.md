@@ -8,11 +8,9 @@
 
 在本次實驗中，題目定義了大量的 Graph ADT 接口與相關演算法。為了追求程式碼的複用性（Reusability）與執行效率，本系統的架構經歷了兩次重大迭代：
 
-1. 初版架構（動態多型）： 最初設計完全依照題目說明，採用純粹的虛擬函式繼承（Virtual Inheritance）。然而在實作過程中發現，不同圖形變體（如 Directed/Undirected, Matrix/List）之間存在大量重複的結構與邏輯。頻繁的虛擬函式表（vtable）查詢也可能帶來額外的執行期開銷。
+1. **初版架構（動態多型）：** 最初設計完全依照題目說明，採用純粹的虛擬函式介面繼承（Interface Inheritance）。然而在實作過程中發現，不同圖形變體（如 Directed/Undirected, Matrix/List）之間存在大量重複的結構與邏輯。頻繁的虛擬函式表（vtable）查詢也可能帶來額外的執行期開銷。
 
-2. 最終架構（靜態多型與組件化）： 為了消除重複代碼並提升效能，本實作改採模板（Templates）與 constexpr 分支技術。透過將「資料儲存（Storage）」與「圖形行為（Behavior）」解耦（Decoupling），設計出可互相搭配的 Components，並在編譯期動態裝配出具體的圖形類別。這不僅保留了接口的一致性，更將型態檢查與分支優化提前至編譯期完成，達到「所見即作」的高效實作。
-在這種方法中
-
+2. **最終架構（靜態多型與組件化）：** 為了消除重複代碼並提升效能，本實作改採模板（Templates）與 `constexpr` 分支技術。核心設計願景是將「資料儲存（Storage）」與「圖形行為（Behavior）」解耦（Decoupling），設計出可互相搭配的 Components，並在編譯期動態裝配出具體的圖形類別。這不僅保留了接口的一致性，更將型態檢查與分支優化提前至編譯期完成。
 ## 程式實作
 
 在Matrix中，我們這樣設計儲存方式：
@@ -988,3 +986,7 @@ WUndiLinkedGraph getMST_K(const WUndiLinkedGraph& graph) {
 +---------------------------------------+
 |  Storage Component (Matrix / List)    |
 +---------------------------------------+
+
+
+
+
