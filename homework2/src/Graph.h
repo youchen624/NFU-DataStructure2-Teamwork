@@ -159,6 +159,19 @@ else
             return item;
         };
 
+        inline Weight_t get_w(const Vertex u, const Vertex v) const {
+if constexpr (!WeightType::is_weight)
+            return 0;
+else {
+            const auto it = data.find(u);
+            if (it == data.end()) return 0;
+            const auto& it_map = it->second;
+            const auto v_it = it_map.find(v);
+            if (v_it == it.end()) return 0;
+            return v_it->second;
+}
+        };
+
         Edge get_edge(const Vertex pos, const Vertex npos) const { // , const Weight_t& w // auto get
 if constexpr (WeightType::is_weight) {         // weight
             return Edge{pos, npos, data.at(pos).at(npos)};
@@ -226,12 +239,24 @@ if constexpr (Is_Directed::is_directed) {       // IF
         // return all neighbors of Vertex u in Graph
         std::vector<Vertex> getNbs(Vertex u) const {
             if (!data.count(u)) return {};
-            vector<Vertex> res;
+            std::vector<Vertex> res;
             res.reserve(data.size());
             for (auto const item : data.at(u)) {
                 res.push_back(get_wv(item));
             }
             return res;
+        };
+        
+
+        // forEach neighbors
+        template<typename FNC>
+        void forEach_NBs(Vertex u, FNC&& callback) const {
+            if (data.count(u)) {
+                for (const auto& item : data.at(u)) {
+                    const Vertex v = get_wv(item);
+                    callback(v, );
+                }
+            }
         };
 
         //
@@ -550,6 +575,7 @@ std::vector<std::vector<Vertex>> const DiLinkedGraph::getCComponents() const {
 
         // using id
         std::vector<std::vector<Weight_t>> data;    // [ [ w ] ] | [u][v] = w;
+        // Bimap
         std::unordered_map<Vertex, ID_t> id;  // { Vertex : id } | v -> id
         std::vector<Vertex> vid;                        // { id : Vertex }  | id -> v
 
@@ -635,13 +661,13 @@ if constexpr (Is_Directed::is_directed)
 
         // return all neighbors of Vertex u in Graph
         std::vector<Vertex> getNbs(Vertex u) const {
-            if (!data.count(u)) return {};
-            vector<Vertex> res;
+            if (!id.count(u)) return {};
+            std::vector<Vertex> res;
             const ID_t ui = id.at(u);
             // res.reserve(data.size());
             for (size_t i = 0; i < data.size(); ++i) {
                 if ((!is_inf(data[ui][i])) && ui != i)
-                    res.push_back(data[ui][i]);
+                    res.push_back(vid[i]);  // id->Vertex
             }
             return res;
             // return [x...] that all (u -> x)
@@ -917,6 +943,13 @@ using UndiMatrixGraph = BasicGraph<Storage<Weight::None, Direction::Undirected>:
 // algorithm
 // #TODO
 
+/**
+ * exeDFS
+ * @param graph a Graph ref
+ * @param start start from
+ * @param callback a function
+ * void callback(parent, current, next); // (par -> [cur -> next])
+ */
 template<typename TGraph,
                 typename F = FS_callback,
                 typename std::enable_if<std::is_base_of_v<Graph, TGraph>, int>::type = 0>
@@ -1151,5 +1184,8 @@ WUndiLinkedGraph getMST_K(const WUndiLinkedGraph& graph) {
     return res;
 };
 
+
 }; // namespace yGraph
+
+
 #endif // GRAPH_H
