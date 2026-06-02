@@ -11,6 +11,7 @@
 1. **初版架構（動態多型）：** 最初設計完全依照題目說明，採用純粹的虛擬函式介面繼承（Interface Inheritance）。然而在實作過程中發現，不同圖形變體（如 Directed/Undirected, Matrix/List）之間存在大量重複的結構與邏輯。頻繁的虛擬函式表（vtable）查詢也可能帶來額外的執行期開銷。
 
 2. **最終架構（靜態多型與組件化）：** 為了消除重複代碼並提升效能，本實作改採模板（Templates）與 `constexpr` 分支技術。核心設計願景是將「資料儲存（Storage）」與「圖形行為（Behavior）」解耦（Decoupling），設計出可互相搭配的 Components，並在編譯期動態裝配出具體的圖形類別。這不僅保留了接口的一致性，更將型態檢查與分支優化提前至編譯期完成。
+
 ## 程式實作
 
 在Matrix中，我們這樣設計儲存方式：
@@ -937,6 +938,7 @@ WUndiLinkedGraph getMST_K(const WUndiLinkedGraph& graph) {
 為了驗證圖形 ADT 運算以及走訪演算法（特別是 Tarjan 雙連通分量演算法與關節點計算）的正確性，我們設計了三種不同結構的圖形進行測試。
 
 ### 1. 測試案例一：無向圖形架構 (Undirected Graph)
+
 這個圖形主要用來測試無向圖中的橋（Bridge）與關節點（Articulation Point）。頂點 4 連接了上方的環狀結構與下方的孤立點 5，因此在拓撲結構上屬於關鍵節點。
 
 * **頂點集合 (V)：** $\{1, 2, 3, 4, 5\}$
@@ -944,6 +946,7 @@ WUndiLinkedGraph getMST_K(const WUndiLinkedGraph& graph) {
 * **結構特性：** 頂點 4 為關節點；移除邊 $(4, 5)$ 會使圖形不連通，故 $(4, 5)$ 為橋。
 
 ### 2. 測試案例二：有向圖形架構 (Directed Graph)
+
 這個圖形主要用來驗證有向圖下的 DFS 走訪順序與強連通分量（SCC）。其中的 1、2、3、4 四個頂點構成了一個順時針的有向環（Directed Cycle），而頂點 5 則是只能單向到達的終端節點。
 
 * **頂點集合 (V)：** $\{1, 2, 3, 4, 5\}$

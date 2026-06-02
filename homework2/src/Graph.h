@@ -159,6 +159,7 @@ else
             return item;
         };
 
+        // get weight by (u, v); // you have to promise that is exist or it will returns 0
         inline Weight_t get_w(const Vertex u, const Vertex v) const {
 if constexpr (!WeightType::is_weight)
             return 0;
@@ -248,13 +249,18 @@ if constexpr (Is_Directed::is_directed) {       // IF
         };
         
 
-        // forEach neighbors
+        /**
+         * // forEach neighbors
+         * @param u Vertex
+         * @param callback function(Vertex, Weight_t)&;
+         */
         template<typename FNC>
         void forEach_NBs(Vertex u, FNC&& callback) const {
             if (data.count(u)) {
                 for (const auto& item : data.at(u)) {
                     const Vertex v = get_wv(item);
-                    callback(v, );
+                    const Weight_t w = get_w(u, v);
+                    callback(v, w);
                 }
             }
         };
@@ -634,7 +640,7 @@ if constexpr (Is_Directed::is_directed)
         std::vector<Edge> getEdges() const {
             std::vector<Edge> edges;
             // for (auto const& [column, rows] : data) {
-            for (size_t i_c = 0; i_c < data.size(); ++i_c) {
+            for (ID_t i_c = 0; i_c < data.size(); ++i_c) {
                 /* column means col_id ; row means row_id
                 // rows is not real rows, it is a [ ] in [ ]
                 * c c c c
@@ -647,7 +653,7 @@ if constexpr (Is_Directed::is_directed)
                 */
                 Vertex pos = vid[i_c];
                 // for (auto const& [row, weight] : rows) {
-                for (size_t i_r = 0; i_r < data.size(); ++i_r) {
+                for (ID_t i_r = 0; i_r < data.size(); ++i_r) {
                     Vertex npos = vid[i_r];
                     if (pos == npos) continue;      // self edge
                     Weight_t weight = data[i_c][i_r];
@@ -665,12 +671,26 @@ if constexpr (Is_Directed::is_directed)
             std::vector<Vertex> res;
             const ID_t ui = id.at(u);
             // res.reserve(data.size());
-            for (size_t i = 0; i < data.size(); ++i) {
+            for (ID_t i = 0; i < data.size(); ++i) {
                 if ((!is_inf(data[ui][i])) && ui != i)
                     res.push_back(vid[i]);  // id->Vertex
             }
             return res;
             // return [x...] that all (u -> x)
+        };
+        /**
+         * // forEach neighbors
+         * @param u Vertex
+         * @param callback function(Vertex, Weight_t)&;
+         */
+        template<typename FNC>
+        void forEach_NBs(Vertex u, FNC&& callback) const {
+            const auto u_id_it = id.find(u);
+            if (u_id_it == id.end()) return;
+            for (ID_t i = 0; i < data.size(); ++i) {
+                if (is_inf(data[u_id_it][i]) || u_id_it == i) continue;
+                callback(vid[i], data[u_id_it][i]);
+            }
         };
 
         //
@@ -710,7 +730,7 @@ if constexpr (!Is_Directed::is_directed)
             auto it = id.find(v);   // it->second == be d id // old index
             if (it == id.end()) return;  // not exists
             const Vertex lv = vid.back();  // last v
-            for (size_t i = 0; i + 1 < data.size(); ++i) {  // bypass last one
+            for (ID_t i = 0; i + 1 < data.size(); ++i) {  // bypass last one
                 if (it->second != i) {  // do not count [i][i]
                     if (!is_inf(data[it->second][i])) --e;
 if constexpr (Is_Directed::is_directed)
@@ -1176,7 +1196,7 @@ WUndiLinkedGraph getMST_K(const WUndiLinkedGraph& graph) {
     std::sort(edges.begin(), edges.end()); // <
     DSU dsu;
 
-    for (const Edge& edge : edges) {
+    for (const Edge edge : edges) {
         if (dsu.unite(edge))
             res.insert_edge(edge);
     }
@@ -1188,4 +1208,4 @@ WUndiLinkedGraph getMST_K(const WUndiLinkedGraph& graph) {
 }; // namespace yGraph
 
 
-#endif // GRAPH_H
+#endif // // GRAPH_H
