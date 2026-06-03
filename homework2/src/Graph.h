@@ -23,7 +23,7 @@
 #include <cmath>
 
 
-namespace yGraph {  // namespace yGraph
+namespace yGraph { // // namespace yGraph
 
 
 using Vertex = int;
@@ -252,10 +252,9 @@ if constexpr (Is_Directed::is_directed) {       // IF
         /**
          * // forEach neighbors
          * @param u Vertex
-         * @param callback function(Vertex, Weight_t)&;
+         * @param callback function(Vertex, Weight_t);
          */
-        template<typename FNC>
-        void forEach_NBs(Vertex u, FNC&& callback) const {
+        void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const {
             if (data.count(u)) {
                 for (const auto& item : data.at(u)) {
                     const Vertex v = get_wv(item);
@@ -681,14 +680,13 @@ if constexpr (Is_Directed::is_directed)
         /**
          * // forEach neighbors
          * @param u Vertex
-         * @param callback function(Vertex, Weight_t)&;
+         * @param callback function(Vertex, Weight_t);
          */
-        template<typename FNC>
-        void forEach_NBs(Vertex u, FNC&& callback) const {
+        void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const {
             const auto u_id_it = id.find(u);
             if (u_id_it == id.end()) return;
             for (ID_t i = 0; i < data.size(); ++i) {
-                if (is_inf(data[u_id_it][i]) || u_id_it == i) continue;
+                if (is_inf(data[u_id_it][i]) || (u_id_it == i)) continue;
                 callback(vid[i], data[u_id_it][i]);
             }
         };
@@ -791,8 +789,11 @@ public:
     virtual ~Graph() {};
     // destructor
 
+    // func | helper
+    virtual Vertex _get_first() const = 0;
+
     //
-    // getter
+    // func | getter
 
     virtual bool is_empty() const = 0;
     // return true if graph has no vertices
@@ -817,6 +818,8 @@ public:
 
     virtual std::vector<Vertex> getNbs(Vertex u) const = 0;
     // return all neighbors of Vertex u in Graph
+
+    virtual void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const = 0;
 
     //
     // modify-type
@@ -880,9 +883,12 @@ class BasicGraph : public Graph {
 private:
     Storage_P storage;
 public:
+    //
+    // func | helper
+    virtual Vertex _get_first() const { return storage._get_first(); };
 
     //
-    // getter
+    // func | getter
     bool is_empty() const override { return storage.is_empty(); };
     size_t number_of_vertices() const override { return storage.number_of_vertices(); };
     size_t number_of_edges() const override { return storage.number_of_edges(); };
@@ -895,6 +901,10 @@ public:
     
     // return all neighbors of Vertex u in Graph
     std::vector<Vertex> getNbs(Vertex u) const { return storage.getNbs(u); };
+    
+    void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const {
+        storage.forEach_NBs(u, callback);
+    };
 
     //
     // modify
@@ -983,24 +993,24 @@ DFS_Result exeDFS(
     // #TODO DFS is a friend with Graph(storage)
     if (graph.is_empty()) return {};
 
-            // start from NOT exists
-            if (graph.exists_vertex(start)) {             // if (data.find(start) == data.end())
+    // start from NOT exists
+    if (graph.exists_vertex(start)) {             // if (data.find(start) == data.end())
 #ifndef ALLOW_FS_START_FROM_NOT_EXISTS
-                return {};                               // END
-                // or throw Error
+        return {};                               // END
+        // or throw Error
 #else
-                start = _get_first();    // get a RND one
+        start = graph._get_first();    // get a RND one
 #endif
 
-            DFS_Result res; // save result
-            res.components.emplace_back();  // for save [[]]
-            std::vector<Vertex>* components_ptr = &res.components.back();
-            Order_t counter = 0;
-            std::unordered_set<Vertex> on_stack;
-            // determine that in a chain from parent, not from other chain
-            // stack for SCC ? // std::stack<Vertex> stk;
+    DFS_Result res; // save result
+    res.components.emplace_back();  // for save [[]]
+    std::vector<Vertex>* components_ptr = &res.components.back();
+    Order_t counter = 0;
+    std::unordered_set<Vertex> on_stack;
+    // determine that in a chain from parent, not from other chain
+    // stack for SCC ? // std::stack<Vertex> stk;
 
-            // bcc used for undirected Graph
+    // bcc used for undirected Graph
             /*
             using bcc_stack_t = std::conditional_t<
             WeightType::is_weight,
@@ -1008,144 +1018,143 @@ DFS_Result exeDFS(
             Edge
             >;
             */
-            std::stack<Edge> bcc_stack;
+    std::stack<Edge> bcc_stack;
 
-            // res.dfn => visited ? { Vertex : Order_t }
+    // res.dfn => visited ? { Vertex : Order_t }
 
 
-            // resolved //~~ # TO DO NOT WORK in all instances~~
-            // rec function
-            std::function<void(Vertex, std::optional<Vertex>)> rec  // REC BEGIN ==== ==== |
-            = [&](Vertex pos, std::optional<Vertex> par) {  // par = std::nullopt
+    // resolved //~~ # TO DO NOT WORK in all instances~~
+    // rec function
+    std::function<void(Vertex, std::optional<Vertex>)> rec  // REC FNC BEGIN ==== ==== |
+    = [&](Vertex pos, std::optional<Vertex> par) {  // par = std::nullopt
                 on_stack.insert(pos);                // BEGIN stack
 
-                // if (!res.dfn.count(pos)) // always true
-                components_ptr->push_back(pos); // components
+        // if (!res.dfn.count(pos)) // always true
+        components_ptr->push_back(pos); // components
 
-                // order
-                res.order.push_back(pos);
-                res.dfn[pos] = res.low_link[pos] = counter;
-                ++counter;
-                
-                size_t children_counting = 0;
-                auto const& the = data.at(pos);
-                for (auto const& item : the) {                          // FOR BEGIN ==== ==== |
-                    const Vertex npos = get_wv(item);
+        // order
+        res.order.push_back(pos);
+        res.dfn[pos] = res.low_link[pos] = counter;
+        ++counter;
+        
+        size_t children_counting = 0;
+        auto const& the = data.at(pos);
+        for (auto const& item : the) {                          // FOR BEGIN ==== ==== ### |
+            const Vertex npos = get_wv(item);
 if constexpr (!Is_Directed::is_directed) {  // undirected
-                    // in undirected case, bypass direct-parent
-                    if (par.has_value() && par.value() == npos) continue;
+            // in undirected case, bypass direct-parent
+            if (par.has_value() && par.value() == npos) continue;
 }
-                    // iterate all childrens
-                    auto const& dfn_npos = res.dfn.find(npos);
-                    if (dfn_npos == res.dfn.end()) {      // never visited | #### #### | #### #### |
+            // iterate all childrens
+            auto const& dfn_npos = res.dfn.find(npos);
+            if (dfn_npos == res.dfn.end()) {      // never visited | #### #### | #### #### |
 
-                        res.parent[npos] = pos;
-                        res.children[pos].push_back(npos);
-                        ++children_counting;        //
+                res.parent[npos] = pos;
+                res.children[pos].push_back(npos);
+                ++children_counting;        //
 
-                        Edge e = get_edge(pos, npos);
-                        res.tree_edges.push_back(e);            // spanning tree (forest)
+                Edge e = get_edge(pos, npos);
+                res.tree_edges.push_back(e);            // spanning tree (forest)
 if constexpr (!Is_Directed::is_directed) {  // undirected
-                        bcc_stack.push(e);
+                bcc_stack.push(e);
     /*
     if constexpr (WeightType::is_weight) {         // weight
-                        Edge e = Edge{pos, npos, data.at(pos).at(npos)};
-                        res.tree_edges.push_back(e); // tree
-                        bcc_stack.push(e);
+                Edge e = Edge{pos, npos, data.at(pos).at(npos)};
+                res.tree_edges.push_back(e); // tree
+                bcc_stack.push(e);
     } else {                                                          // non-weight
-                        Edge e = Edge{pos, npos};
-                        res.tree_edges.push_back(e); // tree
-                        bcc_stack.push(e);
+                Edge e = Edge{pos, npos};
+                res.tree_edges.push_back(e); // tree
+                bcc_stack.push(e);
     }
     */
 }
-                        //
-                        //                                                // CALL recursive | BEGIN
-                        rec(npos, pos);
-                        //                                                // END recursive
-                        //
-                        res.low_link[pos] = std::min(
-                            res.low_link[pos],
-                            res.low_link[npos]
-                        );                                      // update low-link
+                //
+                //                                                // CALL recursive | BEGIN
+                rec(npos, pos);
+                //                                                // END recursive
+                //
+                res.low_link[pos] = std::min(
+                    res.low_link[pos],
+                    res.low_link[npos]
+                );                                      // update low-link
 
-                        //
-                        // # TO DO #HERE undi
-                        // if never visited, push Edge{u, v}
-                        // after rec(u,v) (u -> v)
-                        // if low(v) >= dfn(u) meaning exist bcc
-                        // start pushing from bcc_stack
-                        // until edge {u, v}
+                //
+                // # TO DO #HERE undi
+                // if never visited, push Edge{u, v}
+                // after rec(u,v) (u -> v)
+                // if low(v) >= dfn(u) meaning exist bcc
+                // start pushing from bcc_stack
+                // until edge {u, v}
 
 if constexpr (!Is_Directed::is_directed) {  // undirected
-                        // if (u != start && low[v] >= dfn[u])
-                        // BCC
-                        if (res.low_link.at(npos) >= res.dfn.at(pos)) {
-                            if (par.has_value()) res.articulation_points.insert(pos);
-                            std::vector<Edge> bcc_tmp;
-                            while (true) {  // popping
-                                auto edge = bcc_stack.top();
-                                bcc_stack.pop();
-                                bcc_tmp.push_back(edge);
-                                if (
-                                    (edge.u == pos && edge.v == npos) ||
-                                    (edge.u == npos && edge.v == pos)
-                                ) break;
-                            }
-                            res.bcc_edges.push_back(bcc_tmp);
-                        }
-                        // if (par.has_value() && res.low_link.at(npos) >= res.dfn.at(pos))
-                            // res.articulation_points.insert(pos);
+                // if (u != start && low[v] >= dfn[u])
+                // BCC
+                if (res.low_link.at(npos) >= res.dfn.at(pos)) {
+                    if (par.has_value()) res.articulation_points.insert(pos);
+                    std::vector<Edge> bcc_tmp;
+                    while (true) {  // popping
+                        auto edge = bcc_stack.top();
+                        bcc_stack.pop();
+                        bcc_tmp.push_back(edge);
+                        if (
+                            (edge.u == pos && edge.v == npos) ||
+                            (edge.u == npos && edge.v == pos)
+                        ) break;
+                    }
+                    res.bcc_edges.push_back(bcc_tmp);
+                }
+                // if (par.has_value() && res.low_link.at(npos) >= res.dfn.at(pos))
+                    // res.articulation_points.insert(pos);
 }
 
-                    } else {                           // been visited | #### #### | #### #### |
+            } else {                           // been visited | #### #### | #### #### |
 
 if constexpr (Is_Directed::is_directed) {   // directed
-                        if (on_stack.count(npos)) {
-                            // AND is in current DFS stack
-                            // (pos -> npos) is a back-edge
-                            if (res.dfn[npos] < res.dfn[pos]) res.low_link[pos] = std::min(
-                                res.low_link[pos],
-                                res.dfn[npos]
-                            );
-                        }
+                if (on_stack.count(npos)) {
+                    // AND is in current DFS stack
+                    // (pos -> npos) is a back-edge
+                    if (res.dfn[npos] < res.dfn[pos]) res.low_link[pos] = std::min(
+                        res.low_link[pos],
+                        res.dfn[npos]
+                    );
+                }
 } else {                                                      // undirected
-                        res.low_link[pos] = std::min(
-                            res.low_link[pos],
-                            res.dfn[npos]
-                        );
+                res.low_link[pos] = std::min(
+                    res.low_link[pos],
+                    res.dfn[npos]
+                );
 
-                        if (res.dfn[npos] < res.dfn[pos]) {
-                            bcc_stack.push(get_edge(pos, npos));
-                            /*
-                            if constexpr (WeightType::is_weight) {
-                                bcc_stack.push(Edge{pos, npos, data.at(pos).at(npos)});
-                            } else {
-                                bcc_stack.push(Edge{pos, npos});
-                            }
-                            */
-                        }
+                if (res.dfn[npos] < res.dfn[pos]) {
+                    bcc_stack.push(get_edge(pos, npos));
+                    /*
+                    if constexpr (WeightType::is_weight) {
+                        bcc_stack.push(Edge{pos, npos, data.at(pos).at(npos)});
+                    } else {
+                        bcc_stack.push(Edge{pos, npos});
+                    }
+                    */
+                }
 }
 
-                    }   // NOT in current DFS stack // else { }
-                }
+            }   // NOT in current DFS stack // else { }
+        }
 if constexpr (!Is_Directed::is_directed) {  // root articulation points
-                if (!par.has_value() && children_counting > 1) res.articulation_points.insert(pos);
+        if (!par.has_value() && children_counting > 1) res.articulation_points.insert(pos);
 }
-                on_stack.erase(pos);                // END stack
-            };                                                          // END REC
-            // exe
-            rec(start, std::nullopt);
-            for (auto const& v : data) {
-                // for isolated => forest
-                if (!res.dfn.count(v.first)) {
-                    res.components.emplace_back();
-                    components_ptr = &res.components.back();
-                    rec(v.first, std::nullopt);
-                }
-            }
-            return res;
-    return {};
+        on_stack.erase(pos);                // END stack
+    };                                                          // END REC FNC ==== ==== ### |
+    // exe
+    rec(start, std::nullopt);
+    for (auto const& v : data) {
+        // for isolated => forest
+        if (!res.dfn.count(v.first)) {
+            res.components.emplace_back();
+            components_ptr = &res.components.back();
+            rec(v.first, std::nullopt);
+        }
+    }
+    return res;
 };
 
 template<typename TGraph,
@@ -1208,4 +1217,4 @@ WUndiLinkedGraph getMST_K(const WUndiLinkedGraph& graph) {
 }; // namespace yGraph
 
 
-#endif // // GRAPH_H
+#endif // // GRAPH_H //
