@@ -173,7 +173,7 @@ else {
 }
         };
 
-        Edge get_edge(const Vertex pos, const Vertex npos) const { // , const Weight_t& w // auto get
+        Edge getEdge(const Vertex pos, const Vertex npos) const { // , const Weight_t& w // auto get
 if constexpr (WeightType::is_weight) {         // weight
             return Edge{pos, npos, data.at(pos).at(npos)};
 } else {                                                          // non-weight
@@ -231,7 +231,7 @@ if constexpr (Is_Directed::is_directed) {       // IF
                 for (auto const& item : nbs) {
                     Vertex npos = get_wv(item);
                     if constexpr (!Is_Directed::is_directed) if (pos > npos) continue;
-                    edges.push_back(get_edge(pos, npos));
+                    edges.push_back(getEdge(pos, npos));
                 }
             }
             return edges;
@@ -414,7 +414,7 @@ if constexpr (!Is_Directed::is_directed) {  // undirected
                         res.children[pos].push_back(npos);
                         ++children_counting;        //
 
-                        Edge e = get_edge(pos, npos);
+                        Edge e = getEdge(pos, npos);
                         res.tree_edges.push_back(e);            // spanning tree (forest)
 if constexpr (!Is_Directed::is_directed) {  // undirected
                         bcc_stack.push(e);
@@ -487,7 +487,7 @@ if constexpr (Is_Directed::is_directed) {   // directed
                         );
 
                         if (res.dfn[npos] < res.dfn[pos]) {
-                            bcc_stack.push(get_edge(pos, npos));
+                            bcc_stack.push(getEdge(pos, npos));
                             /*
                             if constexpr (WeightType::is_weight) {
                                 bcc_stack.push(Edge{pos, npos, data.at(pos).at(npos)});
@@ -590,6 +590,24 @@ std::vector<std::vector<Vertex>> const DiLinkedGraph::getCComponents() const {
         // func | helper
         Vertex _get_first() const {
             return vid[0];
+        };
+
+        // return Edge(u, v, w); // return default Edge if NOT exist
+        Edge getEdge(Vertex u, Vertex v) const {
+            // think about should design as "return std::pair<Edge e, bool exist>" ?
+            if (u == v) throw std::invalid_argument("(v, v) is illegal");  // if make it possible, must fix the logic
+            const ID_t u_it = id.find(u);
+            const ID_t v_it = id.fnd(v);
+            if (
+                (u_it == id.end()) ||
+                (v_it == id.end()) ||
+                is_inf(data[u_it->second][v_it->second])    // be marked as none by INF
+            ) return Edge{};
+if constexpr (is_weight) {
+            return Edge{u, v, data[u_it->second][v_it->second]};
+} else {
+            return Edge{u, v};
+}
         };
 
         //
@@ -813,6 +831,12 @@ public:
     virtual bool exists_edge(Vertex u, Vertex v) const = 0;
     // return true if graph has the edge (u, v)
 
+    virtual std::pair<Weight_t, bool> getWeight(Vertex u, Vertex v) const = 0;
+    // return { weight, is_exist } from graph by edge(u, v)
+
+    virtual Edge getEdge(Vertex u, Vertex v) const = 0;
+    // return Edge{u, v, (w)} from graph
+
     virtual std::vector<Edge> getEdges() const = 0;
     // return all edges
 
@@ -883,9 +907,11 @@ class BasicGraph : public Graph {
 private:
     Storage_P storage;
 public:
+    // using Storage_t = Storage_P;
+    static constexpr bool IS_DIRECTED = Storage_P::Is_Directed::is_directed;
     //
     // func | helper
-    virtual Vertex _get_first() const { return storage._get_first(); };
+    Vertex _get_first() const { return storage._get_first(); };
 
     //
     // func | getter
@@ -895,6 +921,18 @@ public:
     size_t degree(Vertex u) const override { return storage.degree(u); };
     bool exists_vertex(Vertex u) const override { return storage.exists_vertex(u); };
     bool exists_edge(Vertex u, Vertex v) const override { return storage.exists_edge(u, v); };
+
+    
+    // return { weight, is_exist } from graph by edge(u, v)
+    std::pair<Weight_t, bool> getWeight(Vertex u, Vertex v) const {
+        static constexpr bool IS_W = Storage_P::WeightType::is_weight;
+        return {storage.get_w(u, v), IS_W};
+    };
+
+    // return Edge{u, v, (w)} from graph
+    Edge getEdge(Vertex u, Vertex v) const {
+        return storage.getEdge(u, v);
+    };
 
     std::vector<Edge> getEdges() const override { return storage.getEdges(); };
 
@@ -990,7 +1028,6 @@ DFS_Result exeDFS(
     const F& callback = FS_callback{}
     // const std::function<void(Vertex, Vertex, Vertex)>& callback
 ) {
-    // #TODO DFS is a friend with Graph(storage)
     if (graph.is_empty()) return {};
 
     // start from NOT exists
@@ -1001,6 +1038,8 @@ DFS_Result exeDFS(
 #else
         start = graph._get_first();    // get a RND one
 #endif
+
+    constexpr bool IS_DIR = TGraph::IS_DIRECTED;    // is_directed ?
 
     DFS_Result res; // save result
     res.components.emplace_back();  // for save [[]]
@@ -1023,11 +1062,12 @@ DFS_Result exeDFS(
     // res.dfn => visited ? { Vertex : Order_t }
 
 
-    // resolved //~~ # TO DO NOT WORK in all instances~~
     // rec function
     std::function<void(Vertex, std::optional<Vertex>)> rec  // REC FNC BEGIN ==== ==== |
-    = [&](Vertex pos, std::optional<Vertex> par) {  // par = std::nullopt
-                on_stack.insert(pos);                // BEGIN stack
+    = [&](Vertex pos, std::optional<Vertex> par) {  // par = std::nullopt   // std::pair<Vertex, bool> par)
+        const bool has_parent = par.has_value();
+        const Vertex ppos = (par.has_value() ? par.value() : pos);
+        on_stack.insert(pos);                // BEGIN stack
 
         // if (!res.dfn.count(pos)) // always true
         components_ptr->push_back(pos); // components
@@ -1038,12 +1078,9 @@ DFS_Result exeDFS(
         ++counter;
         
         size_t children_counting = 0;
-        auto const& the = data.at(pos);
-        for (auto const& item : the) {                          // FOR BEGIN ==== ==== ### |
-            const Vertex npos = get_wv(item);
-if constexpr (!Is_Directed::is_directed) {  // undirected
-            // in undirected case, bypass direct-parent
-            if (par.has_value() && par.value() == npos) continue;
+        graph.forEach_NBs(pos, [&](Vertex npos, Weight_t weight) {
+if constexpr (IS_DIR) {
+            if (ppos == npos) return; // not continue, bc it is a Lambda/std::function
 }
             // iterate all childrens
             auto const& dfn_npos = res.dfn.find(npos);
@@ -1053,27 +1090,18 @@ if constexpr (!Is_Directed::is_directed) {  // undirected
                 res.children[pos].push_back(npos);
                 ++children_counting;        //
 
-                Edge e = get_edge(pos, npos);
+                Edge e = getEdge(pos, npos);
                 res.tree_edges.push_back(e);            // spanning tree (forest)
-if constexpr (!Is_Directed::is_directed) {  // undirected
+if constexpr (!IS_DIR) {
                 bcc_stack.push(e);
-    /*
-    if constexpr (WeightType::is_weight) {         // weight
-                Edge e = Edge{pos, npos, data.at(pos).at(npos)};
-                res.tree_edges.push_back(e); // tree
-                bcc_stack.push(e);
-    } else {                                                          // non-weight
-                Edge e = Edge{pos, npos};
-                res.tree_edges.push_back(e); // tree
-                bcc_stack.push(e);
-    }
-    */
 }
                 //
                 //                                                // CALL recursive | BEGIN
+                callback(ppos, pos, npos);      // call callback with prepos, pos, nextpos
                 rec(npos, pos);
                 //                                                // END recursive
                 //
+                // #TODO HERE #TODO
                 res.low_link[pos] = std::min(
                     res.low_link[pos],
                     res.low_link[npos]
@@ -1087,14 +1115,14 @@ if constexpr (!Is_Directed::is_directed) {  // undirected
                 // start pushing from bcc_stack
                 // until edge {u, v}
 
-if constexpr (!Is_Directed::is_directed) {  // undirected
+if constexpr (!IS_DIR) {  // undirected
                 // if (u != start && low[v] >= dfn[u])
                 // BCC
                 if (res.low_link.at(npos) >= res.dfn.at(pos)) {
-                    if (par.has_value()) res.articulation_points.insert(pos);
+                    if (has_parent) res.articulation_points.insert(pos);
                     std::vector<Edge> bcc_tmp;
                     while (true) {  // popping
-                        auto edge = bcc_stack.top();
+                        Edge edge = bcc_stack.top();
                         bcc_stack.pop();
                         bcc_tmp.push_back(edge);
                         if (
@@ -1110,7 +1138,7 @@ if constexpr (!Is_Directed::is_directed) {  // undirected
 
             } else {                           // been visited | #### #### | #### #### |
 
-if constexpr (Is_Directed::is_directed) {   // directed
+if constexpr (IS_DIR) {   // directed
                 if (on_stack.count(npos)) {
                     // AND is in current DFS stack
                     // (pos -> npos) is a back-edge
@@ -1126,7 +1154,7 @@ if constexpr (Is_Directed::is_directed) {   // directed
                 );
 
                 if (res.dfn[npos] < res.dfn[pos]) {
-                    bcc_stack.push(get_edge(pos, npos));
+                    bcc_stack.push(graph.getEdge(pos, npos));
                     /*
                     if constexpr (WeightType::is_weight) {
                         bcc_stack.push(Edge{pos, npos, data.at(pos).at(npos)});
@@ -1137,10 +1165,12 @@ if constexpr (Is_Directed::is_directed) {   // directed
                 }
 }
 
-            }   // NOT in current DFS stack // else { }
-        }
-if constexpr (!Is_Directed::is_directed) {  // root articulation points
-        if (!par.has_value() && children_counting > 1) res.articulation_points.insert(pos);
+            }   // is visited END
+        }); // graph.forEach_NBs(pos, [&]() { // END
+    };   // REC FND END ==== ==== |
+
+if constexpr (!IS_DIR) {  // root articulation points
+        if (!has_parent && children_counting > 1) res.articulation_points.insert(pos);
 }
         on_stack.erase(pos);                // END stack
     };                                                          // END REC FNC ==== ==== ### |
