@@ -922,7 +922,8 @@ WUndiLinkedGraph getMST_K(const WUndiLinkedGraph& graph) {
 
 本實作核心選用 `std::unordered_map` 與 `std::unordered_set` 作為底層資料結構。由於在數學定義上，圖形的邊（Edge）與點（Vertex）並沒有內在的「順序」可言，因此使用基於雜湊表（Hash Table）的無序容器是最契合的選擇。
 
-在理想狀態下（雜湊函數均勻分佈且無劇烈碰撞），底層透過 Key-Value 進行查找與存取的時間複雜度皆為 $O(1)$。各項核心操作的時間複雜度如下表所示：
+在LinkedGraph中：
+理想狀態下（雜湊函數均勻分佈且無劇烈碰撞），底層透過 Key-Value 進行查找與存取的時間複雜度皆為 $O(1)$。各項核心操作的時間複雜度如下表所示：
 
 | 操作 (Operations) | 平均時間複雜度 | 說明 |
 | :--- | :--- | :--- |
