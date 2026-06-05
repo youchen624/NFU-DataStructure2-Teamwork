@@ -920,13 +920,20 @@ WUndiLinkedGraph getMST_K(const WUndiLinkedGraph& graph) {
 
 ## 效能分析
 
+在LinkedGraph中，我們選用 `std::unordered_map` 與 `std::unordered_set` 作為底層資料結構的儲存類型。根據數學定義，圖的邊與頂點沒有順序可言(無順序問題)
+
 本實作核心選用 `std::unordered_map` 與 `std::unordered_set` 作為底層資料結構。由於在數學定義上，圖形的邊（Edge）與點（Vertex）並沒有內在的「順序」可言，因此使用基於雜湊表（Hash Table）的無序容器是最契合的選擇。
 
-在LinkedGraph中：
 理想狀態下（雜湊函數均勻分佈且無劇烈碰撞），底層透過 Key-Value 進行查找與存取的時間複雜度皆為 $O(1)$。各項核心操作的時間複雜度如下表所示：
 
 | 操作 (Operations) | 平均時間複雜度 | 說明 |
 | :--- | :--- | :--- |
+| `is_empty()` | $O(1)$ | 檢查Graph是否為空(頂點數為零) |
+| `number_of_vertices()` | $O(1)$ | 取得Graph的頂點數量 |
+| `number_of_edges()` | $O(1)$ | 取得Graph的邊數量 |
+| `degree(u)` | $O(v)$ | 取得頂點u的所有出入度數量，其中 v 為出入度總量 |
+| `exists_vertex(u)` | $O(1)$ | 判斷頂點 u 是否存在 |
+| `exists_edge(u, v)` | $O(1)$ | 判斷邊 (u, v) 是否存在 |
 | `insert_vertex(v)` | $O(1)$ | 於雜湊表中建立頂點與其鄰接容器。 |
 | `insert_edge(u, v)` | $O(1)$ | 定位頂點後，直接寫入鄰接結構（如儲存權重或記錄連通）。 |
 | `delete_edge(u, v)` | $O(1)$ | 藉由雜湊直接定位特定邊並將其抹除。 |

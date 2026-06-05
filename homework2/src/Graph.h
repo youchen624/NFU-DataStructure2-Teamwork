@@ -207,7 +207,7 @@ if constexpr (Is_Directed::is_directed) {       // IF
                 t += pair.second.count(u); // set::contains // C20
             }
             return t;
-} else {                                                          // ELSE
+} else {                              // ELSE
             return the->second.size();
 }
         };
