@@ -22,7 +22,9 @@
 
 ![圖片](../.img/DS2-HW2-Matrix_deleting_Vertex.png)
 
-本次 `Graph.h` :
+### Graph.h
+
+-# [跳過](#效能分析)
 
 ```h
 #ifndef GRAPH_H
@@ -918,6 +920,8 @@ WUndiLinkedGraph getMST_K(const WUndiLinkedGraph& graph) {
 
 ```
 
+-# [回去](#graphh)
+
 ## 效能分析
 
 在LinkedGraph中，我們選用 `std::unordered_map` 與 `std::unordered_set` 作為底層資料結構的儲存類型。根據數學定義，圖的邊與頂點沒有順序可言(無順序問題)
@@ -926,20 +930,64 @@ WUndiLinkedGraph getMST_K(const WUndiLinkedGraph& graph) {
 
 理想狀態下（雜湊函數均勻分佈且無劇烈碰撞），底層透過 Key-Value 進行查找與存取的時間複雜度皆為 $O(1)$。各項核心操作的時間複雜度如下表所示：
 
+- Linked Graph
 | 操作 (Operations) | 平均時間複雜度 | 說明 |
 | :--- | :--- | :--- |
 | `is_empty()` | $O(1)$ | 檢查Graph是否為空(頂點數為零) |
 | `number_of_vertices()` | $O(1)$ | 取得Graph的頂點數量 |
 | `number_of_edges()` | $O(1)$ | 取得Graph的邊數量 |
-| `degree(u)` | $O(v)$ | 取得頂點u的所有出入度數量，其中 v 為出入度總量 |
-| `exists_vertex(u)` | $O(1)$ | 判斷頂點 u 是否存在 |
-| `exists_edge(u, v)` | $O(1)$ | 判斷邊 (u, v) 是否存在 |
-| `insert_vertex(v)` | $O(1)$ | 於雜湊表中建立頂點與其鄰接容器。 |
+| `degree(u)` | $O(v)$ | 取得頂點 u 的所有出入度數量，其中 v 為出入度總量 |
+| `exists_vertex(u)` | $O(1)$ | 查詢頂點 u 是否存在 |
+| `exists_edge(u, v)` | $O(1)$ | 查詢邊 (u, v) 是否存在 |
+| `get_edges()` | $O(n)$ | 取得Graph所有邊 |
+| `get_NBs(u)` | $O(v)$ | 取得頂點 u 的所有鄰居 |
+| `forEach_NBs(u, callback(v, w))` | $O(v)$ | 遍歷所有鄰居(u->v) |
+| `forEach_vertex(callback(v))` | $O(n)$ | 遍歷所有頂點 v |
+| | | |
+| `insert_vertex(u)` | $O(1)$ | 於雜湊表中建立頂點與其鄰接容器。 |
 | `insert_edge(u, v)` | $O(1)$ | 定位頂點後，直接寫入鄰接結構（如儲存權重或記錄連通）。 |
+| `delete_vertex(u)` | $O(v)$ | 刪除頂點及所有與其相關的邊，其中 v 為有關聯的對 |
 | `delete_edge(u, v)` | $O(1)$ | 藉由雜湊直接定位特定邊並將其抹除。 |
-| `exists_edge(u, v)` | $O(1)$ | 查詢特定兩點間是否存在邊。 |
+| | | |
+| `_get_a_vertex()` | $O(1)$ | 取得一個頂點 |
+| `_is_directed()` | $O(1)$ | 是否為有向圖 |
+| `_is_weighted()` | $O(1)$ | 是否為有權圖 |
 
 ---
+
+- Matrix Graph
+| 操作 (Operations) | 平均時間複雜度 | 說明 |
+| :--- | :--- | :--- |
+| `is_empty()` | $O(1)$ | 檢查Graph是否為空(頂點數為零) |
+| `number_of_vertices()` | $O(1)$ | 取得Graph的頂點數量 |
+| `number_of_edges()` | $O(1)$ | 取得Graph的邊數量 |
+| `degree(u)` | $O(n)$ | 取得頂點 u 的所有出入度數量 |
+| `exists_vertex(u)` | $O(1)$ | 查詢頂點 u 是否存在 |
+| `exists_edge(u, v)` | $O(1)$ | 查詢邊 (u, v) 是否存在 |
+| `get_edges()` | $O(n^2)$ | 取得Graph所有邊 |
+| `get_NBs(u)` | $O(n)$ | 取得頂點 u 的所有鄰居 |
+| `forEach_NBs(u, callback(v, w))` | $O(n)$ | 遍歷所有鄰居(u->v) |
+| `forEach_vertex(callback(v))` | $O(n)$ | 遍歷所有頂點 v |
+| | | |
+| `insert_vertex(u)` | $O(n)$ | 插入頂點 |
+| `insert_edge(u, v)` | $O(1)$ | 插入邊(自動插入頂點，此自動操作會使複雜度提高為$O(n)$) |
+| `delete_vertex(u)` | $O(n)$ | 刪除頂點及所有與其相關的邊 |
+| `delete_edge(u, v)` | $O(1)$ | 刪除邊(u, v) |
+| | | |
+| `_get_a_vertex()` | $O(1)$ | 取得一個頂點 |
+| `_is_directed()` | $O(1)$ | 是否為有向圖 |
+| `_is_weighted()` | $O(1)$ | 是否為有權圖 |
+
+---
+
+- Algorithms
+| 操作 (Operations) | 平均時間複雜度 | 說明 |
+| :--- | :--- | :--- |
+| `exeDFS(graph, start, callback(p, u, v))` | $O()$ | |
+| `exeBFS(graph, start, callback(0, u, v))` | $O()$ | |
+| `getMST_K(graph)` | $O(n^2)$ (Matrix) $O(n log(n))$ (Linked) | 透過Kruskal’s演算法取得最小生成樹 |
+| `getMST_K(graph)` | $O()$ | 透過Prim’s演算法取得最小生成樹 |
+| `` | $O()$ | |
 
 ## 測試與驗證
 

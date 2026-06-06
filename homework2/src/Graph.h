@@ -1,3 +1,4 @@
+// requires C++17 or above
 #ifndef GRAPH_H
 #define GRAPH_H
 #define LL long long
@@ -38,6 +39,10 @@ struct Edge {
     Vertex u, v;
     Weight_t weight = 0.0;
 
+    explicit operator bool() const {
+        return !(u == v);
+    }
+
     bool operator<(const Edge& that) const {
         return this->weight < that.weight;
     }
@@ -46,6 +51,9 @@ struct Edge {
     }
 };
 
+using Edges = std::vector<Edge>;
+template<typename T>
+using MinHeap = std::priority_queue<T, std::vector<T>, std::greater<T>>;
 
 // DFS results (for analyze)
 typedef struct {
@@ -73,15 +81,15 @@ typedef struct {
     // for Undirected-Graph
 
     // BCC | [ [ Edge... ]... ]
-    std::vector<std::vector<Edge>> bcc_edges;
+    std::vector<Edges> bcc_edges;
     // for Undirected-Graph
 
     // SCC
     // for Directed-Graph
 
     // spanning trees (allowed forest)
-    std::vector<Edge> tree_edges;            // T
-    // std::vector<Edge> none_tree_edges; // N
+    Edges tree_edges;            // T
+    // Edges none_tree_edges; // N
 } DFS_Result;
 
 typedef struct {
@@ -174,6 +182,11 @@ if constexpr (is_weighted) {
         };
 
         Edge get_edge(const Vertex pos, const Vertex npos) const { // , const Weight_t& w // auto get
+            // think about should design as "return std::pair<Edge e, bool exist>" ?
+            if (u == v) throw std::invalid_argument("(v, v) is illegal");  // if make it possible, must fix the logic
+            const auto it = data.find(pos);
+            if (it == data.end() || it->second.find(npos) == it->second.end())
+                return Edge{};
 if constexpr (WeightType::is_weighted) {         // weight
             return Edge{pos, npos, data.at(pos).at(npos)};
 } else {                                                          // non-weight
@@ -181,7 +194,7 @@ if constexpr (WeightType::is_weighted) {         // weight
 }
         };
 
-        Vertex _get_first() const {
+        Vertex _get_a_vertex() const {
             return data.begin()->first;
         };
 
@@ -225,12 +238,13 @@ if constexpr (Is_Directed::is_directed) {       // IF
         };
 
         // get all edges in Graph
-        std::vector<Edge> get_edges() const {
-            std::vector<Edge> edges;
+        Edges get_edges() const {
+            Edges edges;
             for (auto const& [pos, nbs] : data) {
                 for (auto const& item : nbs) {
                     Vertex npos = get_wv(item);
-                    if constexpr (!Is_Directed::is_directed) if (pos > npos) continue;
+if constexpr (!is_directed)
+                    if (pos > npos) continue;
                     edges.push_back(get_edge(pos, npos));
                 }
             }
@@ -302,7 +316,7 @@ else
             };
 
             add_edge(u, v, w);
-if constexpr (!Is_Directed::is_directed) {     // IFN
+if constexpr (!is_directed) {     // IFN
             add_edge(v, u, w);
 }
 /*
@@ -369,7 +383,7 @@ if constexpr (!Is_Directed::is_directed) {      // IF
                 return {};                               // END
                 // or throw Error
 #else
-                start = _get_first();    // get a RND one
+                start = _get_a_vertex();    // get a RND one
 #endif
 
             DFS_Result res; // save result
@@ -462,7 +476,7 @@ if constexpr (!Is_Directed::is_directed) {  // undirected
                         // BCC
                         if (res.low_link.at(npos) >= res.dfn.at(pos)) {
                             if (par.has_value()) res.articulation_points.insert(pos);
-                            std::vector<Edge> bcc_tmp;
+                            Edges bcc_tmp;
                             while (true) {  // popping
                                 auto edge = bcc_stack.top();
                                 bcc_stack.pop();
@@ -537,7 +551,7 @@ if constexpr (!Is_Directed::is_directed) {  // root articulation points
 #ifndef ALLOW_FS_START_FROM_NOT_EXISTS
                 return {};                               // END
 #else
-                start = _get_first();    // get a RND one
+                start = _get_a_vertex();    // get a RND one
 #endif
             BFS_Result res;
             Order_t counter = 0;
@@ -601,7 +615,7 @@ if constexpr (is_weighted) {
             return 0;
         };
 
-        Vertex _get_first() const {
+        Vertex _get_a_vertex() const {
             return vid[0];
         };
 
@@ -667,8 +681,8 @@ if constexpr (Is_Directed::is_directed)
         bool exists_edge(Edge e) const { return exists_edge(e.u, e.v); };
 
         // get all edges in Graph
-        std::vector<Edge> get_edges() const {
-            std::vector<Edge> edges;
+        Edges get_edges() const {
+            Edges edges;
             // for (auto const& [column, rows] : data) {
             for (ID_t i_c = 0; i_c < data.size(); ++i_c) {
                 /* column means col_id ; row means row_id
@@ -679,7 +693,7 @@ if constexpr (Is_Directed::is_directed)
                 r x x x X
                 r x x x X
                 c, r are id
-                X are in same [ ]
+                X are in same [ ]vector
                 */
                 Vertex pos = vid[i_c];
                 // for (auto const& [row, weight] : rows) {
@@ -809,10 +823,8 @@ if constexpr (!Is_Directed::is_directed)
             --e;
         };
 
-        DFS_Result getDFS(Vertex start) const { return {}; };
-        BFS_Result getBFS(Vertex start) const { return {}; };
     };
-    // #TODO fix matrix data[i][i] = INF problem in Floyd-Warshall case
+    // solved // # TO DO fix matrix data[i][i] = INF problem in Floyd-Warshall case
 };
 
 
@@ -843,7 +855,7 @@ public:
     };
 
     // func | helper
-    virtual Vertex _get_first() const = 0;
+    virtual Vertex _get_a_vertex() const = 0;
 
     virtual bool _is_directed() const = 0;
     virtual bool _is_weight() const = 0;
@@ -875,7 +887,7 @@ public:
     virtual Edge get_edge(Vertex u, Vertex v) const = 0;
     // return Edge{u, v, (w)} from graph
 
-    virtual std::vector<Edge> get_edges() const = 0;
+    virtual Edges get_edges() const = 0;
     // return all edges
 
     virtual std::vector<Vertex> get_NBs(Vertex u) const = 0;
@@ -907,6 +919,7 @@ public:
     virtual void delete_edge(Vertex u, Vertex v) = 0;
     // delete edge (u, v) from the graph
 
+/*
     //
     // algorithm
 
@@ -918,26 +931,29 @@ public:
     virtual BFS_Result getBFS(Vertex start) const = 0;
     virtual BFS_Result getBFS() const = 0;
 
-    // get Connected Components
-    virtual std::vector<std::vector<Vertex>> const getCComponents(const DFS_Result &dfs) const {
-        return dfs.components;
-    };
+    
     // you should call this function with the DFS result
     virtual std::vector<std::vector<Vertex>> const getCComponents() const {
         return getDFS().components;
     };
+    // you should call this function with the DFS result
+    virtual Edges const getSpanningTree() const {
+        return getDFS().tree_edges;
+    };
+*/
+
+    // get Connected Components
+    virtual std::vector<std::vector<Vertex>> const getCComponents(const DFS_Result &dfs) const {
+        return dfs.components;
+    };
 
     // get Spanning Tree (return a Forest is possible)
-    virtual std::vector<Edge> const getSpanningTree(const DFS_Result& dfs) const {
+    virtual Edges const getSpanningTree(const DFS_Result& dfs) const {
         return dfs.tree_edges;
-    };
-    // you should call this function with the DFS result
-    virtual std::vector<Edge> const getSpanningTree() const {
-        return getDFS().tree_edges;
     };
 
     // get Biconnected Components
-    virtual std::vector<std::vector<Edge>> getBCComponents(const DFS_Result &dfs) const = 0;
+    virtual std::vector<Edges> getBCComponents(const DFS_Result &dfs) const = 0;
 
 protected:
     // size_t n;                      // number of vertices
@@ -954,10 +970,10 @@ public:
     static constexpr bool IS_WEIGHTED = Storage_P::is_weighted;
     //
     // func | helper
-    Vertex _get_first() const { return storage._get_first(); };
+    Vertex _get_a_vertex() const { return storage._get_a_vertex(); };
     
-    bool _is_directed() const { return Storage_P::is_directed; };
-    bool _is_weight() const { return Storage_P::is_weighted; };
+    inline bool _is_directed() const { return IS_DIRECTED; };
+    inline bool _is_weight() const { return IS_WEIGHTED; };
 
     //
     // func | getter
@@ -980,7 +996,7 @@ public:
         return storage.get_edge(u, v);
     };
 
-    std::vector<Edge> get_edges() const override { return storage.get_edges(); };
+    Edges get_edges() const override { return storage.get_edges(); };
 
     
     // return all neighbors of Vertex u in Graph
@@ -1019,27 +1035,29 @@ public:
     // splice getDFS to DFS with a callback to collect data
 
     // get DFS
+    /*
     DFS_Result getDFS(Vertex start) const override {
         return storage.getDFS(start);
     };
     DFS_Result getDFS() const override {
         if (is_empty()) return {};
-        return getDFS(storage._get_first());
+        return getDFS(storage._get_a_vertex());
         // return getDFS(storage.data.begin()->first);
     };
-
+    
     // get BFS
     BFS_Result getBFS(Vertex start) const override {
         return storage.getBFS(start);
     };
     BFS_Result getBFS() const override {
         if (is_empty()) return {};
-        return getBFS(storage._get_first());
+        return getBFS(storage._get_a_vertex());
         // return getBFS(storage.data.begin()->first);
     };
+    */
     
-    std::vector<std::vector<Edge>> getBCComponents(const DFS_Result& dfs) const override { return dfs.bcc_edges; };
-    std::unordered_set<Vertex> getArticulationPoints(const DFS_Result& dfs) {
+    inline std::vector<Edges> getBCComponents(const DFS_Result& dfs) const override { return dfs.bcc_edges; };
+    inline std::unordered_set<Vertex> getArticulationPoints(const DFS_Result& dfs) {
         return dfs.articulation_points;
     };
 };
@@ -1071,16 +1089,16 @@ using UndiMatrixGraph = BasicGraph<Storage<Weight::None, Direction::Undirected>:
  * void callback(parent, current, next); // (par -> [cur -> next])
  */
 template<typename TGraph,
-                typename F = FS_callback,
-                typename std::enable_if<std::is_base_of_v<Graph, TGraph>, int>::type = 0>
+                typename F = FS_callback>
+                // ,typename std::enable_if<std::is_base_of_v<Graph, TGraph>, int>::type = 0>
 // requires std::derived_from<TGraph, Graph>;
-// static_assert(std::is_base_of_v<Graph, TGraph>, "TGraph must inherit from Graph");
 DFS_Result exeDFS(
     const TGraph& graph,
     Vertex start,
     const F& callback = FS_callback{}
     // const std::function<void(Vertex, Vertex, Vertex)>& callback
 ) {
+    static_assert(std::is_base_of_v<Graph, TGraph>, "TGraph must inherit from Graph");
     if (graph.is_empty()) return {};
 
     // if start from NOT exists
@@ -1089,7 +1107,7 @@ DFS_Result exeDFS(
         return {};                               // END
         // or throw Error
 #else
-        start = graph._get_first();    // get a RND one
+        start = graph._get_a_vertex();    // get a RND one
 #endif
 
     static constexpr bool IS_DIR = TGraph::IS_DIRECTED;    // is_directed ?
@@ -1167,7 +1185,7 @@ if constexpr (!IS_DIR) {  // undirected
                 // BCC
                 if (res.low_link.at(npos) >= res.dfn.at(pos)) {
                     if (has_parent) res.articulation_points.insert(pos);
-                    std::vector<Edge> bcc_tmp;
+                    Edges bcc_tmp;
                     while (true) {  // popping
                         Edge edge = bcc_stack.top();
                         bcc_stack.pop();
@@ -1241,13 +1259,14 @@ if constexpr (!IS_DIR) {
  * parent did not design
  */
 template<typename TGraph,
-                typename F = FS_callback,
-                typename std::enable_if<std::is_base_of_v<Graph, TGraph>, int>::type = 0>
+                typename F = FS_callback>
+                // ,typename std::enable_if<std::is_base_of_v<Graph, TGraph>, int>::type = 0>
 BFS_Result exeBFS(
     const TGraph& graph,
     Vertex start,
     const F& callback = FS_callback{}
 ) {
+    static_assert(std::is_base_of_v<Graph, TGraph>, "TGraph must inherit from Graph");
     if (graph.is_empty()) return {};
 
     // start from NOT exists
@@ -1255,7 +1274,7 @@ BFS_Result exeBFS(
 #ifndef ALLOW_FS_START_FROM_NOT_EXISTS
         return {};                               // END
 #else
-        start = graph._get_first();    // get a RND one
+        start = graph._get_a_vertex();    // get a RND one
 #endif
     BFS_Result res;
     Order_t counter = 0;
@@ -1320,17 +1339,62 @@ public:
     };
 };
 
-// matrix type not found #TODO
-WUndiLinkedGraph getMST_K(const WUndiLinkedGraph& graph) {
-    WUndiLinkedGraph res;
-    std::vector<Edge> edges = graph.get_edges();
+
+/**
+ * Kruskal’s Algorithm
+ * @param graph a Graph ref
+ * @returns Edges (vector<Edge>) meaning MST
+ */
+template<typename TGraph>
+Edges getMST_K(const TGraph& graph) {
+    static_assert(!TGraph::is_directed, "MST alg do not supports undirected graphs.");
+    static_assert(TGraph::is_weighted, "MST alg requires weighted graphs");
+    Edges res;
+    Edges edges = graph.get_edges();
     std::sort(edges.begin(), edges.end()); // <
     DSU dsu;
 
     for (const Edge edge : edges) {
         if (dsu.unite(edge))
-            res.insert_edge(edge);
+            res.push_back(edge);
     }
+
+    return res;
+};
+
+
+/**
+ * Prim's Algorithm
+ * @param graph a Graph ref
+ * @param start start from
+ * @returns Edges (vector<Edge>) meaning MST
+ */
+template<typename TGraph>
+Edges getMST_P(const TGraph& graph, const Vertex start) {
+    static_assert(!TGraph::is_directed, "MST alg do not supports undirected graphs.");
+    static_assert(TGraph::is_weighted, "MST alg requires weighted graphs");
+
+    if (!graph.exists_vertex(start)) return {};
+    std::unordered_set<Vertex> visited;
+    MinHeap<Edge> pHeap;
+    Edges res;
+
+    auto pHeap_import = [&](Vertex u) {
+        visited.insert(u);
+        graph.forEach_NBs(u, [&](Vertex v, Weight_t w){
+            if (!visited.count(v)) pHeap.push(Edge{u, v, w});
+        });
+    };
+
+    pHeap_import(start);
+
+    while (!pHeap.empty()) {
+        const Edge e = pHeap.top();
+        pHeap.pop();
+        if (visited.count(e.v)) continue;
+        pHeap_import(e.v);
+        res.push_back(e);
+    };
 
     return res;
 };
@@ -1339,4 +1403,4 @@ WUndiLinkedGraph getMST_K(const WUndiLinkedGraph& graph) {
 }; // namespace yGraph
 
 
-#endif // // GRAPH_H //
+#endif // // GRAPH_H // //
