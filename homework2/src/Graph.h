@@ -827,9 +827,454 @@ if constexpr (!Is_Directed::is_directed)
     // solved // # TO DO fix matrix data[i][i] = INF problem in Floyd-Warshall case
 };
 
+/*
+// special Bimap
+template<typename VT, typename KT = ID_t>
+class SBimap {
+    public:
+    VT v(KT id) const {};
+    KT k(VT v) const {};
+    private:
+    std::unordered_map<VT, KT> v_id;
+    std::vector<VT> id_v;   // must fix if KT != ID_t
+};
+*/
+
+class IStorage {
+public:
+    virtual ~IStorage() {};
+    //
+    // const functions
+
+    // how many of Vertices in storage
+    virtual size_t count_vertices() const = 0;
+    // how many of Edges in storage
+    virtual size_t count_edges() const = 0;
+
+    // is a Vertex exists?
+    virtual bool exists_vertex(Vertex u) const = 0;
+    // is an Edge exists?
+    virtual bool exists_edge(Vertex u, Vertex v) const = 0;
+
+    // get completed Edge (with Weight)
+    virtual Edge get_edge(const Vertex pos, const Vertex npos) const = 0;
+    // get all Edges in storage (with Weight)
+    virtual Edges get_edges() const = 0;
+    
+    // get a Vertex from storage
+    // <Vertex v, bool x> x meaning whether exists
+    virtual std::pair<Vertex, bool> _get_a_vertex() const = 0;
+    
+    /**
+     * // forEach neighbors // all (u -> v)
+     * @param u Vertex
+     * @param callback function(Vertex, Weight_t);
+     */
+    virtual void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const = 0;
+    /**
+     * // forEach Vertex // all Vertex in storage
+     * @param callback function(Vertex)
+     */
+    virtual void forEach_vertex(std::function<void(Vertex)> callback) const = 0;
+
+    //
+    // modifiers functions
+
+    // insert Vertex v into storage; without inserts any Edges
+    virtual void insert_vertex(Vertex v) = 0;
+    // insert Edge (u, v, (w)) into storage; also add Vertex if it is NOT exists
+    virtual void insert_edge(Vertex u, Vertex v, Weight_t w = Weight_t{}) = 0;
+    // insert Edge (u, v, (w)) into storage; also add Vertex if it is NOT exists
+    virtual void insert_edge(Edge e) { insert_edge(e.u, e.v, e.weight); };
+
+    // delete Vertex and all Edges incident to it
+    virtual void delete_vertex(Vertex v) = 0;
+    // delete Edge (u, v) from the storage
+    virtual void delete_edge(Vertex u, Vertex v) = 0;
+    // delete Edge (u, v) from the storage
+    virtual void delete_edge(Edge e) { delete_edge(e.u, e.v); };
+private:
+};
+
+template<bool DIRECTED, bool WEIGHTED>
+class Linked_STG : public IStorage {
+private:
+    //
+    // type
+using NB_t = std::conditional_t<            // V -> nb鄰居
+        WEIGHTED,                               // ?:
+        std::unordered_map<Vertex, Weight_t>,   // { V : W }
+        std::unordered_set<Vertex>              // { V... }
+    >;
+
+    //
+    // data
+
+    // { Vertex : { Vertex : Weight_t... }... } OR
+    // { Vertex : { Vertex... } }
+    std::unordered_map<Vertex, NB_t> data;
+    size_t e = 0;                               // numbers of edges
+
+    //
+    // func | helper
+
+    // get npos/Vertex
+    template<typename T>
+    static Vertex _get_wv(const T& item) {
+if constexpr (WEIGHTED)
+        return item.first;
+else
+        return item;
+    };
+
+    // get weight by (u, v);
+    // you have to promise that is exist or it will returns 0
+    Weight_t _get_w(const Vertex u, const Vertex v) const {
+        if (u == v) throw std::invalid_argument("(v, v) is illegal");  // if make it possible, must fix the logic
+if constexpr (WEIGHTED) {
+        const auto it = data.find(u);
+        if (it == data.end()) return 0;
+        const auto& it_map = it->second;
+        const auto v_it = it_map.find(v);
+        if (v_it != it_map.end()) return v_it->second;
+}
+        return 0;
+    };
+
+    void _add_edge(Vertex from, Vertex to, Weight_t weight) {
+if constexpr (WEIGHTED)
+        data[from][to] = weight;
+else
+        data[from].insert(to);
+    };
+
+public:
+    //
+    // const functions
+    size_t count_vertices() const override { return data.size(); };
+    size_t count_edges() const override { return e; };
+
+    bool exists_vertex(Vertex u) const override {
+        return (data.find(u) != data.end());
+    };
+    bool exists_edge(Vertex u, Vertex v) const override {
+        auto the = data.find(u);
+        if (the == data.end()) return false;
+        else return the->second.count(v);
+    };
+
+    Edge get_edge(const Vertex pos, const Vertex npos) const override {
+        if (u == v) throw std::invalid_argument("(v, v) is illegal");
+        // ^ if make it possible, must fix the logic
+        // (u, u) meaning NOT exists
+        const auto it = data.find(pos);
+        if (it == data.end() || it->second.find(npos) == it->second.end())
+            return Edge{};
+if constexpr (WEIGHTED) {         // weight
+        return Edge{pos, npos, data.at(pos).at(npos)};
+} else {                                                          // non-weight
+        return Edge{pos, npos};
+}
+    };
+    Edges get_edges() const override {
+        Edges edges;
+        for (auto const& [pos, nbs] : data) {
+            for (auto const& item : nbs) {
+                Vertex npos = _get_wv(item);
+if constexpr (!DIRECTED)
+{   if (pos > npos) continue;   }
+                edges.push_back(get_edge(pos, npos));
+            }
+        }
+        return edges;
+    };
+    
+    std::pair<Vertex, bool> _get_a_vertex() const override {
+        if (!count_vertices()) return {0, false};
+        else return {data.begin()->first, true};
+    };
+    
+    void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const override {
+        if (data.count(u)) {
+            for (const auto& item : data.at(u)) {
+                const Vertex v = _get_wv(item);
+                const Weight_t w = _get_w(u, v);
+                callback(v, w);
+            }
+        }
+    };
+    void forEach_vertex(std::function<void(Vertex)> callback) const override {              
+        for (const auto& [v, _] : data) {
+            callback(v);
+        }
+    };
+
+    //
+    // modifiers functions
+    void insert_vertex(Vertex v) override {
+if constexpr (WEIGHTED) {
+        data.emplace(v, std::unordered_map<Vertex, Weight_t>{});
+} else {
+        data.emplace(v, std::unordered_set<Vertex>{});
+}
+};
+    void insert_edge(Vertex u, Vertex v, Weight_t w = Weight_t{}) override {
+        if (u == v) throw std::invalid_argument("(v, v) is illegal");
+        // if make it possible, must fix the logic
+        insert_vertex(u);
+        // could be disappeared, bc data[u] is able to auto-insert
+        insert_vertex(v);
+        if (!data[u].count(v)) ++e;
+
+        _add_edge(u, v, w);
+if constexpr (!DIRECTED) {
+        _add_edge(v, u, w);
+}
+    };
+    // void insert_edge(Edge e) override { insert_edge(e.u, e.v, e.weight); };
+
+    void delete_vertex(Vertex v) override {
+        auto the = data.find(v);
+        if (the == data.end()) return;
+
+        // edges part
+if constexpr (DIRECTED) {
+        for (auto& [_, sec] : data)
+            if (sec.erase(v)) --e;
+} else {
+        for (auto& it : the->second) {
+            data.at(_get_wv(it)).erase(v);
+        }
+}
+
+        // vertices part
+        e -= the->second.size();
+        data.erase(v);
+    };
+    void delete_edge(Vertex u, Vertex v) override {
+        auto the = data.find(u);
+        if (the == data.end()) return;
+        if (the->second.erase(v)) {
+if constexpr (!DIRECTED) {      // IF
+            data.at(v).erase(u); // data[v].erase(u);
+}
+            --e;
+        }
+    };
+    // void delete_edge(Edge e) override { delete_edge(e.u, e.v); };
+};
 
 
+template<bool DIRECTED, bool WEIGHTED>
+class Matrix_STG : public IStorage {
+private:
+    //
+    // data
 
+    // [ [ w ] ] | [u][v] = w;  // by id
+    std::vector<std::vector<Weight_t>> data;
+    // Bimap
+    std::unordered_map<Vertex, ID_t> id;    // { Vertex : id }  | v  -> id
+    std::vector<Vertex> vid;                // { id : Vertex }  | id -> v
+
+    size_t e = 0;                           // numbers of edges
+
+    //
+    // helper
+    Weight_t _get_w(Vertex u, Vertex v) const {
+        if (u == v) throw std::invalid_argument("(v, v) is illegal");
+        // if make it possible, must fix the logic
+if constexpr (WEIGHTED) {
+        const auto u_it = id.find(u);
+        const auto v_it = id.find(v);
+        if ((u_it != id.end()) && (v_it != id.end()))
+            return data[u_it->second][v_it->second];
+}
+        return 0;
+    };
+
+public:
+    //
+    // const functions
+
+    // how many of Vertices in storage
+    size_t count_vertices() const override { return data.size(); };
+    // how many of Edges in storage
+    size_t count_edges() const override { return e; };
+
+    // is a Vertex exists?
+    bool exists_vertex(Vertex u) const override {
+        return (id.find(u) != id.end());
+    };
+    // is an Edge exists?
+    bool exists_edge(Vertex u, Vertex v) const override {
+        if (u == v) return false;
+        if ((!id.count(u)) || (!id.count(v))) return false;
+        const ID_t pos = id.at(u);
+        const ID_t npos = id.at(v);
+        if (is_inf(data[pos][npos])) return false;
+        else return true;
+    };
+
+    // get completed Edge (with Weight)
+    Edge get_edge(const Vertex pos, const Vertex npos) const override {
+        if (u == v) throw std::invalid_argument("(v, v) is illegal");
+        // if make it possible, must fix the logic
+        const auto u_it = id.find(u);
+        const auto v_it = id.find(v);
+        if (
+            (u_it == id.end()) ||
+            (v_it == id.end()) ||
+            is_inf(data[u_it->second][v_it->second])
+            // be marked as none by INF
+        ) return Edge{};
+if constexpr (WEIGHTED) {
+        return Edge{u, v, data[u_it->second][v_it->second]};
+} else {
+        return Edge{u, v};
+}
+    };
+    // get all Edges in storage (with Weight)
+    Edges get_edges() const override {
+        Edges edges;
+        // for (auto const& [column, rows] : data) {
+        for (ID_t i_c = 0; i_c < data.size(); ++i_c) {
+            /* column means col_id ; row means row_id
+            // rows is not real rows, it is a [ ] in [ ]
+            * c c c c
+            r x x x X
+            r x x x X
+            r x x x X
+            r x x x X
+            c, r are id
+            X are in same [ ]vector
+            */
+            Vertex pos = vid[i_c];
+            // for (auto const& [row, weight] : rows) {
+            for (ID_t i_r = 0; i_r < data.size(); ++i_r) {
+                Vertex npos = vid[i_r];
+if constexpr (!DIRECTED)
+{   if (pos > npos) continue;   }
+                if (pos == npos) continue;      // self edge
+                Weight_t weight = data[i_c][i_r];
+                if (is_inf(weight)) continue;   // edge not exists
+                edges.push_back(Edge{pos, npos, weight});
+            }
+        }
+        return edges;
+    };
+    
+    // get a Vertex from storage
+    // <Vertex v, bool x> x meaning whether exists
+    std::pair<Vertex, bool> _get_a_vertex() const override {
+        if (!count_vertices()) return {0, false};
+        else return {vid[0], true};
+    };
+    
+    /**
+     * // forEach neighbors // all (u -> v)
+     * @param u Vertex
+     * @param callback function(Vertex, Weight_t);
+     */
+    void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const override {
+        const auto u_id_it = id.find(u);
+        if (u_id_it == id.end()) return;
+        const ID_t u_id = u_id_it->second;
+        for (ID_t i = 0; i < data.size(); ++i) {
+            if (is_inf(data[u_id][i]) || (u_id == i)) continue;
+            callback(vid[i], data[u_id][i]);
+        }
+    };
+    /**
+     * // forEach Vertex // all Vertex in storage
+     * @param callback function(Vertex)
+     */
+    void forEach_vertex(std::function<void(Vertex)> callback) const override {
+        for (const Vertex v : vid) {
+            callback(v);
+        }
+    };
+
+    //
+    // modifiers
+
+    // insert Vertex v into storage; without inserts any Edges
+    void insert_vertex(Vertex v) override {
+        if (id.count(v)) return;    // already exists
+        const ID_t i = data.size();
+        id.insert({v, i});          // start from index 0
+        vid.push_back(v);
+        const Weight_t inf_w = get_inf();
+        for (auto& rows : data) {
+            rows.push_back(inf_w);
+        }
+        data.emplace_back(i+1, inf_w);
+        data[i][i] = 0;             // self = 0
+    };
+    // insert Edge (u, v, (w)) into storage; also add Vertex if it is NOT exists
+    void insert_edge(Vertex u, Vertex v, Weight_t w = Weight_t{}) override {
+        if (u == v) throw std::invalid_argument("(v, v) is illegal");
+        // if make it possible, must fix the logic
+        insert_vertex(u);    // possible no exists
+        insert_vertex(v);    // possible no exists
+
+        const ID_t pos = id.at(u);
+        const ID_t npos = id.at(v);
+        if (is_inf(data[pos][npos])) ++e;
+        data[pos][npos] = w;
+if constexpr (!DIRECTED)
+{   data[npos][pos] = w;    }
+    };
+    // insert Edge (u, v, (w)) into storage; also add Vertex if it is NOT exists
+    // void insert_edge(Edge e) override { insert_edge(e.u, e.v, e.weight); };
+
+    // delete Vertex and all Edges incident to it
+    void delete_vertex(Vertex v) override {
+        // find it -> change as last -> pop &&->
+        // set [i][i] = INF &&-> update id and vid
+        auto it = id.find(v);           // it->second == be d id // old index
+        if (it == id.end()) return;     // not exists
+        const Vertex lv = vid.back();   // last v
+        for (ID_t i = 0; i + 1 < data.size(); ++i) {  // bypass last one
+            if (it->second != i) {      // do not count [i][i]
+                if (!is_inf(data[it->second][i])) --e;
+if constexpr (DIRECTED)
+    {           if (!is_inf(data[i][it->second])) --e;  }
+            }
+            data[it->second][i] = data[data.size() - 1][i];
+            data[i][it->second] = data[i][data.size() - 1];
+            data[i].pop_back();
+        }
+        data.pop_back();
+        
+        // self edge = 0
+        if (data.size() > it->second)
+            data[it->second][it->second] = 0;
+
+        // id mapping
+        // id vid
+        vid[it->second] = lv;       // id -> v
+        id[lv] = it->second;        // v -> id
+        vid.pop_back();
+        id.erase(it);
+        // #TODO confirm no bug
+    };
+    // delete Edge (u, v) from the storage
+    void delete_edge(Vertex u, Vertex v) override {
+        if (u == v) return;
+        if ((!id.count(u)) || (!id.count(v))) return;
+        // a Vertex not exists => edge impossible exists
+        const ID_t pos = id.at(u);
+        const ID_t npos = id.at(v);
+        if (is_inf(data[pos][npos])) return;    // edge not exists
+        data[pos][npos] = get_inf();
+if constexpr (!DIRECTED)
+    {   data[npos][pos] = get_inf();    }
+        --e;
+    };
+    // delete Edge (u, v) from the storage
+    // void delete_edge(Edge e) override { delete_edge(e.u, e.v); };
+};
 
 
 
@@ -840,6 +1285,10 @@ class Graph {
      * @property a non-empty set of vertices and a set of undirected edges.
      * where each edge is a pair of vertices.
      */
+protected:
+    IStorage* data_ptr;                 // data
+    // size_t n;                        // number of vertices
+    // size_t e;                        // number of edges
 public:
     virtual ~Graph() {};
     // destructor
@@ -849,10 +1298,12 @@ public:
      * @details force type cast (static)
      * @warning ensure type currect
      */
+    /*
     template<typename TypeC_Graph>
     static TypeC_Graph& cast(Graph* ptr) {
         return static_cast<TypeC_Graph&>(*ptr);
     };
+    */
 
     // func | helper
     virtual Vertex _get_a_vertex() const = 0;
@@ -905,10 +1356,10 @@ public:
     virtual void insert_vertex(Vertex v) = 0;
     // insert vertex v into graph; v has no incident edges
 
-    virtual void insert_edge(Vertex u, Vertex v) = 0;
+    // virtual void insert_edge(Vertex u, Vertex v) = 0;
     // insert edge (u, v) into graph
 
-    virtual void insert_edge(Vertex u, Vertex v, Weight_t w) = 0;
+    virtual void insert_edge(Vertex u, Vertex v, Weight_t w = Weight_t{}) = 0;
     // insert edge (u, v) (weight) into graph
 
     virtual void insert_edge(Edge e) = 0;
@@ -953,11 +1404,10 @@ public:
     };
 
     // get Biconnected Components
-    virtual std::vector<Edges> getBCComponents(const DFS_Result &dfs) const = 0;
+    virtual std::vector<Edges> getBCComponents(const DFS_Result &dfs) const { return dfs.bcc_edges; };
 
-protected:
-    // size_t n;                      // number of vertices
-    // size_t e;                      // number of edges
+    // get articulation points
+    virtual std::unordered_set<Vertex> getArticulationPoints(const DFS_Result& dfs) { return dfs.articulation_points; };
 };
 
 template <typename Storage_P>
