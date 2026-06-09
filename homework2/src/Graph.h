@@ -28,6 +28,7 @@ namespace yGraph { // // namespace yGraph
 
 
 using Vertex = int;
+using VPath = std::vector<Vertex>;
 // if use others not double, have to figure out with "INF" problem
 using Weight_t = double;
 // is weight infinity
@@ -1158,7 +1159,80 @@ Edges getMST_P(const BasicGraph<STG, false, true>& graph, const Vertex start) {
 };
 
 
+
+//
+// algorithm | includes Paths
+
+struct PathNode {
+    Vertex u;
+    Weight_t dis;
+    bool operator>(const PathNode& that) const { return dis > that.dis; };
+    bool operator<(const PathNode& that) const { return dis < that.dis; };
+};
+
+
+struct PathResult {
+    VPath path;
+    Weight_t total_distance;
+};
+
+/**
+ * ;
+ */
+typedef class ShortestPath_DataHolder {
+template<template<bool, bool> class STG, bool DIRECTED, bool WEIGHTED,typename F>
+friend SP_DHolder getSSSP_D(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Vertex start);
+private:
+    // {start: { target: < parent, distance > }}
+    std::unordered_map<Vertex, std::unordered_map<Vertex, PathNode>> data;
+public:
+    PathResult getSP(const Vertex start, const Vertex target) const {};
+} SP_DHolder;
+
+/**
+ * Dijkstra's algorithm
+ * @warning you must NOT use negative-Weight
+ * @param graph a Graph ref
+ * @param start start from
+ */
+template<
+    template<bool, bool> class STG, bool DIRECTED, bool WEIGHTED,
+    typename F = FS_callback
+>   // SSSP - Single-Source Shortest Path // 單源最短路徑
+SP_DHolder getSSSP_D(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Vertex start) {
+    if (!graph.exists_vertex(start)) return {};
+
+    SP_DHolder res;
+    auto& data = res.data[start];   // { target: < parent, distance > }
+    MinHeap<PathNode> pHeap;
+
+    auto relaxation = [&](PathNode p) {
+        if (p.dis != data[p.u].dis) return;
+        graph.forEach_NBs(p.u, [&](Vertex v, Weight_t w){
+            if ((!data.count(v)) || p.dis + w < data[v].dis) {
+                data[v] = {p.u, p.dis + w};
+                pHeap.push({v, data[v].dis});
+            }
+        });
+    };
+
+    data[start] = {start, 0};
+    pHeap.push({start, 0});
+
+    while(!pHeap.empty()) {
+        PathNode pn = pHeap.top();
+        pHeap.pop();
+
+        relaxation(pn);
+    };
+
+    return res;
+};
+
+
+
 }; // namespace yGraph
 
 
-#endif // // GRAPH_H // //
+#endif
+// // GRAPH_H // //
