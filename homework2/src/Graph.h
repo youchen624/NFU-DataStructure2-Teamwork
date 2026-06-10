@@ -1173,7 +1173,7 @@ struct PathNode {
 
 struct PathResult {
     VPath path;
-    Weight_t total_distance;
+    Weight_t total_dis = 0;
 };
 
 /**
@@ -1186,7 +1186,25 @@ private:
     // {start: { target: < parent, distance > }}
     std::unordered_map<Vertex, std::unordered_map<Vertex, PathNode>> data;
 public:
-    PathResult getSP(const Vertex start, const Vertex target) const {};
+    PathResult getSP(Vertex start, Vertex target) const {
+        if (!data.count(start) || !data.at(start).count(target)) return {};  // NOT found.
+        PathResult res;
+
+        res.total_dis = data.at(start).at(target).dis;
+        while (start != target) {
+            res.path.push_back(target);
+            target = data.at(start).at(target).u;
+        };
+
+        std::reverse(res.path.begin(), res.path.end());
+        // ^ O(n) | can be optimization,
+        // by using data{start: { target: < parent, distance, **path_count** > }}
+        // + array::reserve + for(--) reversing pushing
+        // to count how many nodes have been visited before the current path-node
+        // anyway, O(n) is acceptable, so... LAZY~ YA!!
+
+        return res;
+    };
 } SP_DHolder;
 
 /**
@@ -1209,6 +1227,8 @@ SP_DHolder getSSSP_D(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ver
     auto relaxation = [&](PathNode p) {
         if (p.dis != data[p.u].dis) return;
         graph.forEach_NBs(p.u, [&](Vertex v, Weight_t w){
+            // EXCEPT #TODO should throw a clearly class
+            if (w < 0) throw ("negative-Weight not support");
             if ((!data.count(v)) || p.dis + w < data[v].dis) {
                 data[v] = {p.u, p.dis + w};
                 pHeap.push({v, data[v].dis});
