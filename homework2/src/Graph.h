@@ -170,6 +170,11 @@ public:
      * @param callback function(Vertex)
      */
     virtual void forEach_vertex(std::function<void(Vertex)> callback) const = 0;
+    /**
+     * // forEach Edge // all Edge in storage
+     * @param callback function(Edge);
+     */
+    virtual void forEach_edge(std::function<void(Edge)> callback) const = 0;
 
     //
     // modifiers functions
@@ -318,6 +323,21 @@ if constexpr (!DIRECTED)
             callback(v);
         }
     };
+    void forEach_edge(std::function<void(Edge)> callback) const override {
+        for (const auto& [u, um] : data) {
+if constexpr (WEIGHTED)
+            // data{ u<Vertex>: um<{ v<Vertex>, w<Weight_t>... }>... }
+            for (const auto& [v, w] : um) {
+                callback(Edge{u, v, w});
+            };
+else
+            // data{ u<Vertex>: um<{ v<Vertex>... }>... }
+            for (const Vertex v : um) {
+                callback(Edge{u, v});
+            };
+        }
+    };
+
 
     //
     // modifiers functions
@@ -520,6 +540,19 @@ if constexpr (!DIRECTED)
             callback(v);
         }
     };
+    void forEach_edge(std::function<void(Edge)> callback) const override {
+        for(ID_t ui = 0; ui < count_vertices(); ++ui) {
+            for(ID_t vi = 0; vi < count_vertices(); ++vi) {
+                if (is_inf(data[ui][vi]) || (ui == vi)) continue;
+                callback(Edge{
+                    vid[ui],
+                    vid[vi],
+                    data[ui][vi]
+                });
+            }
+        }
+    };
+
 
     //
     // modifiers
@@ -676,6 +709,8 @@ public:
     virtual void forEach_vertex(std::function<void(Vertex)> callback) const = 0;
     // forEach all Vertex
 
+    virtual void forEach_edge(std::function<void(Edge)> callback) const = 0;
+
     //
     // modify-type
 
@@ -738,7 +773,7 @@ public:
 
 
 template<template<bool, bool> class STG, bool DIRECTED, bool WEIGHTED>
-class BasicGraph {
+class BasicGraph : public Graph {
 protected:
     // IStorage* data_ptr;                 // data
 public:
@@ -804,6 +839,8 @@ public:
     void forEach_vertex(std::function<void(Vertex)> callback) const override { data_ptr->forEach_vertex(callback); };
     // forEach all Vertex
 
+    void forEach_edge(std::function<void(Edge)> callback) const override { data_ptr->forEach_edge(callback); };
+
     //
     // modify-type
 
@@ -812,6 +849,9 @@ public:
 
     // void insert_edge(Vertex u, Vertex v) override {};
     // insert edge (u, v) into graph
+
+    // to fix C/C++ bug which not follows STD
+    using Graph::insert_edge;
 
     void insert_edge(Vertex u, Vertex v, Weight_t w = Weight_t{}) override { data_ptr->insert_edge(u, v, w); };
     // insert edge (u, v) (weight) into graph
@@ -1177,17 +1217,22 @@ struct PathResult {
 };
 
 /**
- * ;
+ * @name ShortestPath_DataHolder = SP_DHolder
+ * @details to store SP data, and provide a SP-getting method by (u, v)
  */
 typedef class ShortestPath_DataHolder {
-template<template<bool, bool> class STG, bool DIRECTED, bool WEIGHTED,typename F>
+template<template<bool, bool> class STG, bool DIRECTED, bool WEIGHTED>
 friend SP_DHolder getSSSP_D(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Vertex start);
+template<template<bool, bool> class STG, bool DIRECTED, bool WEIGHTED>
+friend SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Vertex start);
 private:
     // {start: { target: < parent, distance > }}
     std::unordered_map<Vertex, std::unordered_map<Vertex, PathNode>> data;
+    bool has_NegativeCycle = false;
 public:
     PathResult getSP(Vertex start, Vertex target) const {
         if (!data.count(start) || !data.at(start).count(target)) return {};  // NOT found.
+        if (has_NegativeCycle) throw "NegCycle exists";
         PathResult res;
 
         res.total_dis = data.at(start).at(target).dis;
@@ -1207,16 +1252,15 @@ public:
     };
 } SP_DHolder;
 
+
 /**
  * Dijkstra's algorithm
- * @warning you must NOT use negative-Weight
+ * @warning negative-Weight NOT supports !!!
  * @param graph a Graph ref
  * @param start start from
  */
-template<
-    template<bool, bool> class STG, bool DIRECTED, bool WEIGHTED,
-    typename F = FS_callback
->   // SSSP - Single-Source Shortest Path // 單源最短路徑
+template<template<bool, bool> class STG, bool DIRECTED, bool WEIGHTED>
+// SSSP - Single-Source Shortest Path // 單源最短路徑
 SP_DHolder getSSSP_D(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Vertex start) {
     if (!graph.exists_vertex(start)) return {};
 
@@ -1224,10 +1268,13 @@ SP_DHolder getSSSP_D(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ver
     auto& data = res.data[start];   // { target: < parent, distance > }
     MinHeap<PathNode> pHeap;
 
+    data[start] = {start, 0};
+    pHeap.push({start, 0});
+
     auto relaxation = [&](PathNode p) {
         if (p.dis != data[p.u].dis) return;
         graph.forEach_NBs(p.u, [&](Vertex v, Weight_t w){
-            // EXCEPT #TODO should throw a clearly class
+            // EXCEPTION #TODO should throw a clearly class
             if (w < 0) throw ("negative-Weight not support");
             if ((!data.count(v)) || p.dis + w < data[v].dis) {
                 data[v] = {p.u, p.dis + w};
@@ -1235,9 +1282,6 @@ SP_DHolder getSSSP_D(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ver
             }
         });
     };
-
-    data[start] = {start, 0};
-    pHeap.push({start, 0});
 
     while(!pHeap.empty()) {
         PathNode pn = pHeap.top();
@@ -1248,6 +1292,33 @@ SP_DHolder getSSSP_D(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ver
 
     return res;
 };
+
+
+
+/**
+ * Bellman-Ford's algorithm
+ * @details allowed Neg-Weight
+ * @param graph a Graph ref
+ * @param start start from
+ */
+template<
+    template<bool, bool> class STG, bool DIRECTED, bool WEIGHTED
+    //, typename F = FS_callback
+>   // SSSP - Single-Source Shortest Path (allowed Neg-Weight) // 單源最短路徑(允許負權)
+SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Vertex start) {
+    if (!graph.exists_vertex(start)) return {};
+
+    SP_DHolder res;
+    auto& data = res.data[start];
+    data[start] = {start, 0};
+
+    for (size_t i = 0; i < graph.number_of_vertices() - 1; ++i) {
+        ;
+    };
+
+    return res;
+};
+
 
 
 

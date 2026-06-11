@@ -945,7 +945,7 @@ WUndiLinkedGraph getMST_K(const WUndiLinkedGraph& graph) {
 | `forEach_vertex(callback(v))` | $O(n)$ | 遍歷所有頂點 v |
 | | | |
 | `insert_vertex(u)` | $O(1)$ | 於雜湊表中建立頂點與其鄰接容器。 |
-| `insert_edge(u, v)` | $O(1)$ | 定位頂點後，直接寫入鄰接結構（如儲存權重或記錄連通）。 |
+| `insert_edge(u, v)` | $O(1)$ | 定位頂點後，直接寫入鄰接結構(如儲存權重或記錄連通)。 |
 | `delete_vertex(u)` | $O(v)$ | 刪除頂點及所有與其相關的邊，其中 v 為有關聯的對 |
 | `delete_edge(u, v)` | $O(1)$ | 藉由雜湊直接定位特定邊並將其抹除。 |
 | | | |
