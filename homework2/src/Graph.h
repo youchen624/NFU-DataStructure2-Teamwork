@@ -1229,10 +1229,27 @@ private:
     // {start: { target: < parent, distance > }}
     std::unordered_map<Vertex, std::unordered_map<Vertex, PathNode>> data;
     bool has_NegativeCycle = false;
+
+protected:
+    // (org->to) CMP Edge(from->to)(w)
+    // returns true if did a relaxation
+    bool relax(const Vertex start, const Edge e) {
+        auto& dataref = data[start];
+        if ((dataref.count(e.u)) && ( // "from"(e.u) must exists
+            // "to" never visited meaning INF-dis
+            (!dataref.count(e.v)) ||
+            // (from->to).dis < (org->to).dis // (from->to).dis == (from.dis + w)
+            dataref[dataref[e.u].u].dis + e.weight < dataref[e.v].dis
+        )) {
+            dataref[e.v] = {e.u, dataref[dataref[e.u].u].dis + e.weight};
+            return true;
+        } else return false;
+    };
+
 public:
     PathResult getSP(Vertex start, Vertex target) const {
         if (!data.count(start) || !data.at(start).count(target)) return {};  // NOT found.
-        if (has_NegativeCycle) throw "NegCycle exists";
+        if (has_NegativeCycle) throw "NegCycle exists"; // #TODO
         PathResult res;
 
         res.total_dis = data.at(start).at(target).dis;
@@ -1276,10 +1293,14 @@ SP_DHolder getSSSP_D(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ver
         graph.forEach_NBs(p.u, [&](Vertex v, Weight_t w){
             // EXCEPTION #TODO should throw a clearly class
             if (w < 0) throw ("negative-Weight not support");
+            if (res.relax(start, {p.u, v, w}))
+                pHeap.push({v, data[v].dis});
+            /*
             if ((!data.count(v)) || p.dis + w < data[v].dis) {
                 data[v] = {p.u, p.dis + w};
                 pHeap.push({v, data[v].dis});
             }
+            */
         });
     };
 
@@ -1313,8 +1334,18 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
     data[start] = {start, 0};
 
     for (size_t i = 0; i < graph.number_of_vertices() - 1; ++i) {
-        ;
+        graph.forEach_edge([&](const Edge e){   // u->v (w)
+            res.relax(start, e);
+        });
     };
+
+    // check neg-cycle
+    graph.forEach_edge([&](const Edge e){
+        if (res.relax(start, e)) {
+            res.has_NegativeCycle = true;
+            return res;
+        };
+    });
 
     return res;
 };
