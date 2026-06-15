@@ -6,21 +6,493 @@
 
 ## 解題說明
 
-在本次實驗中，題目定義了大量的 Graph ADT 接口與相關演算法。為了追求程式碼的複用性（Reusability）與執行效率，本系統的架構經歷了兩次重大迭代：
+"作業說明"中展現了很多的結構、圖、程式片段、以及一些sample...
+在這份作業中，存在多次修改，大致上程式的設計方式有三個階段(大改):
 
-1. **初版架構（動態多型）：** 最初設計完全依照題目說明，採用純粹的虛擬函式介面繼承（Interface Inheritance）。然而在實作過程中發現，不同圖形變體（如 Directed/Undirected, Matrix/List）之間存在大量重複的結構與邏輯。頻繁的虛擬函式表（vtable）查詢也可能帶來額外的執行期開銷。
-
-2. **最終架構（靜態多型與組件化）：** 為了消除重複代碼並提升效能，本實作改採模板（Templates）與 `constexpr` 分支技術。核心設計願景是將「資料儲存（Storage）」與「圖形行為（Behavior）」解耦（Decoupling），設計出可互相搭配的 Components，並在編譯期動態裝配出具體的圖形類別。這不僅保留了接口的一致性，更將型態檢查與分支優化提前至編譯期完成。
+1. 一開始我使用單純的class繼承方式，單純的繼承方式就如說明中的圖示相同。
+2. 但在途中發現了很多地方會重複寫到，我意識到這些重複的地方與儲存結構有關。因此我將Graph結構改成使用struct以及template定義了不同的"是否有權重"的類變數。
+3. 再後來我發現我越寫越亂，這樣的結構甚至讓我感到混亂，我重新思考後，我將**儲存**的部分做成單一抽象類IStorage(透過指標儲存於Graph基類，並且被Linked_STG,Matrix_STG繼承)，並透過模板template在BasicGraph(繼承基類Graph)中使用，最後搭配using定義這些不同模板的條件組合而成的所有類(題目出現的)。
 
 ## 程式實作
 
-在Matrix中，我們這樣設計儲存方式：
+### Edge Class
+
+在Edge邊中，我們設計固定都儲存兩個頂點與一個權重:
+
+```cpp
+struct Edge {
+    Vertex u, v;
+    Weight_t weight = 0.0;
+
+    explicit operator bool() const {
+        return !(u == v);
+    }
+
+    bool operator<(const Edge& that) const {
+        return this->weight < that.weight;
+    }
+    bool operator>(const Edge& that) const {
+        return this->weight > that.weight;
+    }
+};
+```
+
+- `operator bool() const` - 用於if判斷邊是否存在，只要是self-edge就是不存在
+  - 其中 `explicit` 語法比較特殊，它用於禁止編譯器擅自作主，將它用在其他地方，這邊僅允許用於布林判斷
+- `operator<(const Edge& that) const`/`operator>(const Edge& that) const` - 用於比較邊，單純比較權重，用於排序
+
+### Storage
+
+在Matrix中，前面提到透過 `std::vector<std::vector<Weight_t>>` 儲存，理由是節省成本(時間與空間上較均衡的選項)，因應根據作業說明所示，加入的頂點很可能不連續，所以這邊還需要一個Bimap交換index，透過 `std::vector` (index->Vertex)以及 `std::unordered_map` (Vertex->index)，有點像是ID的運作方式，詳細的過程請詳見程式或示意圖。
+這是Matrix_STG的運作方式示意圖(大致)：
 
 ![圖片](../.img/DS2-HW2-Matrix_storage.png)
 
 在Matrix中，刪除一個頂點，同時顧及vector特性，我們先將最後一項複製到待刪除的位置，隨後將最後一項刪除(`vector::pop_back()`)，同時修改自身邊及id/value map。
 
 ![圖片](../.img/DS2-HW2-Matrix_deleting_Vertex.png)
+
+### Graphs Classes
+
+我們使用
+
+```cpp
+template<template<bool, bool> class STG, bool DIRECTED, bool WEIGHTED>
+class BasicGraph : public Graph;
+```
+
+其中
+
+- `Graph` - 基類有 `IStorage* data_ptr` protected成員，並在BasicGraph中維護(new, delete)。
+- `STG` - 是儲存結構，使用繼承IStorage的類即可，同時支援其他類型(透過撰寫繼承IStorage的類，支援不僅侷限於Linked/Matrix)
+- `DIRECTED`/`WEIGHTED` - 是否有向/是否有權，字面上，不多做說明。
+
+並透過
+
+```cpp
+using UndiLinkedGraph   = BasicGraph<Linked_STG, false, false>;
+using WUndiLinkedGraph  = BasicGraph<Linked_STG, false, true>;
+using WDiLinkedGraph    = BasicGraph<Linked_STG, true,  true>;
+using DiLinkedGraph     = BasicGraph<Linked_STG, true,  false>;
+
+using UndiMatrixGraph   = BasicGraph<Matrix_STG, false, false>;
+using WUndiMatrixGraph  = BasicGraph<Matrix_STG, false, true>;
+using WDiMatrixGraph    = BasicGraph<Matrix_STG, true,  true>;
+using DiMatrixGraph     = BasicGraph<Matrix_STG, true,  false>;
+```
+
+進行繼承與定義
+
+其中使用到template搭配 `if constexpr` ，這個部分會在編譯時期自動完成，也就是實際運作時它不需要重新判斷(即不需要在每次執行階段判斷)。
+
+### Graphs Algorithms Functions
+
+原先我將演算法的方法都寫於Graphs內，但我總覺得哪裡怪怪的，後來才發現應該將這些算法置於Graph類外部較為合理(因為他不是"圖"類的一部份)。在這過程中也是一次中等程度的全部修改(從直接存取data到透過public functions去做存取)，同時也新增了一些 `forEach_` 方法：
+
+- `forEach_NBs(Vertex u, callback)` - 遍歷鄰居(u->v)，其中NB是neighbors的縮寫，會針對圖中**所有**從頂點u出發的鄰居邊跑過一次，過程無保證順序。
+  - `Vertex` - 出發的頂點
+  - `callback(Vertex, Weight_t)` - callback(std::function或Lambda)，如果是無權圖則Weight_t會是預設0。
+- `forEach_vertex(callback)` - 便利頂點(v)，會針對圖中**所有**的頂點跑過一次，無保證順序。
+  - `callback(Vertex)` - callback(std::function或Lambda)。
+- `forEach_edge(callback)` - 遍歷邊(e)，針對途中**所有**邊都會跑過一次，不保證順序。
+  - `callback(Edge)` - callback(std::function或Lambda)，Edge是邊類(結構)。
+
+在設計 `DFS`/`BFS` 時，我設計了一個很有意思的define定義 - `ALLOW_FS_START_FROM_NOT_EXISTS`，字面上的意思，只要定義就允許這兩個演算法的初始頂點不存在圖，當然如果不存在會隨機找一個做為起點。
+
+#### DFS/BFS Algorithms
+
+- `exeDFS(Graph&, Vertex, callback)` - Depth First Search，顧名思義，它會盡可能地深入，這邊透過dfn(`std::unordered_map<Vertex, Order_t>`)判斷是否已經造訪過(同時作為紀錄第幾個造訪的)，這是多次更改後的最終版，簡單來說，這邊使用Lambda遞迴的方式自動製造stack，不斷探索直到完畢。
+  - `Graph&` - 圖，這邊引用參考，不會複製整個圖;
+  - `Vertex` - 起點。若`ALLOW_FS_START_FROM_NOT_EXISTS`有被定義，則允許在起點不存在時自動找一個起點
+  - `callback(Vertex, Vertex, Vertex)` - 三個頂點分別為(parent, current, neighbors)
+
+其中 `std::optional` 是可選的一種std類，因為開始的時候沒有parent，所以我使用這個類來判斷。
+
+```cpp
+/**
+ * exeDFS
+ * @param graph a Graph ref
+ * @param start start from
+ * @param callback a function
+ * void callback(parent, current, next); // (par -> [cur -> next])
+ */
+template<
+    template<bool, bool> class STG, bool DIRECTED, bool WEIGHTED,
+    typename F = FS_callback
+>
+DFS_Result exeDFS(
+    const BasicGraph<STG, DIRECTED, WEIGHTED>& graph,
+    Vertex start,
+    const F& callback = FS_callback{}
+    // const std::function<void(Vertex, Vertex, Vertex)>& callback
+) {
+    // static_assert(std::is_base_of_v<Graph, TGraph>, "TGraph must inherit from Graph");
+    if (graph.is_empty()) return {};
+
+    // if start from NOT exists
+    if (!graph.exists_vertex(start))
+#ifndef ALLOW_FS_START_FROM_NOT_EXISTS
+        return {};                               // END
+        // or throw Error
+#else
+        start = graph._get_a_vertex();    // get a RND one
+#endif
+
+    DFS_Result res; // save result
+    res.components.emplace_back();  // for save [[]]
+    std::vector<Vertex>* components_ptr = &res.components.back();
+    Order_t counter = 0;
+    std::unordered_set<Vertex> on_stack;
+    // determine that in a chain from parent, not from other chain
+    // stack for SCC ? // std::stack<Vertex> stk;
+
+    // bcc used for undirected Graph
+    std::stack<Edge> bcc_stack;
+
+    // res.dfn => visited ? { Vertex : Order_t }
+
+
+    // rec function
+    std::function<void(Vertex, std::optional<Vertex>)> rec  // REC FNC BEGIN ==== ==== ### |
+    = [&](Vertex pos, std::optional<Vertex> par) {  // par = std::nullopt   // std::pair<Vertex, bool> par)
+        const bool has_parent = par.has_value();
+        const Vertex ppos = (has_parent ? par.value() : pos);
+        on_stack.insert(pos);                // on stack BEGIN
+
+        // components
+        components_ptr->push_back(pos);
+
+        // order
+        res.order.push_back(pos);
+        res.dfn[pos] = res.low_link[pos] = counter;
+        ++counter;
+        
+        // (u -> v) childrens
+        size_t children_counting = 0;
+        graph.forEach_NBs(pos, [&](Vertex npos, Weight_t weight) {
+if constexpr (!DIRECTED) {
+            if (has_parent && (ppos == npos)) return; // not continue, bc it is a Lambda/std::function
+}
+            // iterate all childrens
+            auto const& dfn_npos = res.dfn.find(npos);
+            if (dfn_npos == res.dfn.end()) {      // never visited | #### #### | #### #### |
+
+                res.parent[npos] = pos;
+                res.children[pos].push_back(npos);
+                ++children_counting;        //
+
+                Edge e = graph.get_edge(pos, npos);
+                res.tree_edges.push_back(e);            // spanning tree (forest)
+if constexpr (!DIRECTED) {
+                bcc_stack.push(e);
+}
+                //
+                //                                                // CALL recursive | BEGIN
+                callback(ppos, pos, npos);      // call callback with prepos, pos, nextpos
+                rec(npos, pos);
+                //                                                // END recursive
+                //
+                // #TODO HERE #TODO
+                res.low_link[pos] = std::min(
+                    res.low_link[pos],
+                    res.low_link[npos]
+                );                                      // update low-link
+
+                //
+                // # TO DO #HERE undi
+                // if never visited, push Edge{u, v}
+                // after rec(u,v) (u -> v)
+                // if low(v) >= dfn(u) meaning exist bcc
+                // start pushing from bcc_stack
+                // until edge {u, v}
+
+if constexpr (!DIRECTED) {  // undirected
+                // if (u != start && low[v] >= dfn[u])
+                // BCC
+                if (res.low_link.at(npos) >= res.dfn.at(pos)) {
+                    if (has_parent) res.articulation_points.insert(pos);
+                    Edges bcc_tmp;
+                    while (true) {  // popping
+                        Edge edge = bcc_stack.top();
+                        bcc_stack.pop();
+                        bcc_tmp.push_back(edge);
+                        if (
+                            (edge.u == pos && edge.v == npos) ||
+                            (edge.u == npos && edge.v == pos)
+                        ) break;
+                    }
+                    res.bcc_edges.push_back(bcc_tmp);
+                }
+                // if (par.has_value() && res.low_link.at(npos) >= res.dfn.at(pos))
+                    // res.articulation_points.insert(pos);
+}
+
+            } else {                 // been visited | #### #### | #### #### |
+
+if constexpr (DIRECTED) {
+            // directed
+                if (on_stack.count(npos)) {
+                    // AND is in current DFS stack
+                    // (pos -> npos) is a back-edge
+                    if (res.dfn[npos] < res.dfn[pos]) res.low_link[pos] = std::min(
+                        res.low_link[pos],
+                        res.dfn[npos]
+                    );
+                }
+} else {
+            // undirected
+                res.low_link[pos] = std::min(
+                    res.low_link[pos],
+                    res.dfn[npos]
+                );
+
+                if (res.dfn[npos] < res.dfn[pos]) {
+                    bcc_stack.push(graph.get_edge(pos, npos));
+                }
+}
+
+            }   // "is visited" END
+        }); // graph.forEach_NBs(pos, [&]() { // END forEach_NBs
+
+if constexpr (!DIRECTED) {
+    // root articulation points
+        if (!has_parent && children_counting > 1) res.articulation_points.insert(pos);
+}
+        on_stack.erase(pos);                // END stack
+    };                                                   // END REC FNC  ==== ==== ### |
+
+
+    // exe
+    rec(start, std::nullopt);
+    graph.forEach_vertex([&](Vertex v) {
+        // for isolated => forest
+        if (!res.dfn.count(v)) {
+            res.components.emplace_back();
+            components_ptr = &res.components.back();
+            rec(v, std::nullopt);
+        }
+    });
+    return res;
+};
+```
+
+- `exeBFS`
+  - `Graph&` - 圖，這邊引用參考，不會複製整個圖;
+  - `Vertex` - 起點。若`ALLOW_FS_START_FROM_NOT_EXISTS`有被定義，則允許在起點不存在時自動找一個起點
+  - `callback(Vertex, Vertex, Vertex)` - 相較於DFS，BFS我沒有設計neighbors，三個頂點分別為(parent, current, 0)
+
+```cpp
+/**
+ * exeBFS
+ * @param graph a Graph ref
+ * @param start start from
+ * @param callback a function
+ * void callback(0, current, next); // (par -> [cur -> next])
+ * parent did NOT design
+ */
+template<
+    template<bool, bool> class STG, bool DIRECTED, bool WEIGHTED,
+    typename F = FS_callback
+>
+BFS_Result exeBFS(
+    const BasicGraph<STG, DIRECTED, WEIGHTED>& graph,
+    Vertex start,
+    const F& callback = FS_callback{}
+) {
+    // static_assert(std::is_base_of_v<Graph, TGraph>, "TGraph must inherit from Graph");
+    if (graph.is_empty()) return {};
+
+    // start from NOT exists
+    if (!graph.exists_vertex(start))
+#ifndef ALLOW_FS_START_FROM_NOT_EXISTS
+        return {};                               // END
+#else
+        start = graph._get_a_vertex();    // get a RND one
+#endif
+    BFS_Result res;
+    Order_t counter = 0;
+    // res.bfn -> visited
+
+    // in queueing
+    std::queue<Vertex> queueing;
+    const auto q_push = [&](const Vertex p) {
+        queueing.push(p);
+        res.order.push_back(p);
+        res.bfn[p] = counter;   // is a visited mark same time
+        ++counter;
+    };
+
+    // queueing.push(start);
+    q_push(start);
+
+    while (!queueing.empty()) {
+        Vertex pos = queueing.front();
+        queueing.pop();
+        // res.order.push_back(pos);
+        // res.bfn.insert(pos, counter);
+        // ++counter;
+
+        graph.forEach_NBs(pos, [&](Vertex npos, Weight_t weight) {
+            if (res.bfn.count(npos)) return; // continue; bc of Lambda
+            q_push(npos);
+            callback(0, pos, npos);
+        });
+    }
+
+    return res;
+};
+
+```
+
+為了方便存儲資料(畢竟處理過程就能產生)，因此設計了這兩個演算法專用的result類:
+
+```cpp
+typedef struct {
+    // sequence of Vertices (i -> Vertex) | [ Vertex... ]
+    std::vector<Vertex> order;
+
+    // order of each Vertex (Vertex -> order) | { Vertex : Order_t... }
+    std::unordered_map<Vertex, Order_t> dfn;
+
+    // earliest reachability (closest to root) | { Vertex : Order_t... }
+    std::unordered_map<Vertex, Order_t> low_link;
+
+    // each Vertices' parent | { Vertext : Vertex... }
+    std::unordered_map<Vertex, Vertex> parent;
+    // each Vertices' childrens | { Vertext : [ Vertex... ]... }
+    std::unordered_map<Vertex, std::vector<Vertex>> children;
+    // std::unordered_map<Vertex, std::unordered_set<Vertex>> not better
+
+    // articulation points | { Vertex... }
+    std::unordered_set<Vertex> articulation_points;
+    // using in Undirection-Graph only
+
+    // connected components | [ [ Vertex... ]... ]
+    std::vector<std::vector<Vertex>> components;
+    // for Undirected-Graph
+
+    // BCC | [ [ Edge... ]... ]
+    std::vector<Edges> bcc_edges;
+    // for Undirected-Graph
+
+    // SCC
+    // for Directed-Graph
+
+    // spanning trees (allowed forest)
+    Edges tree_edges;            // T
+    // Edges none_tree_edges; // N
+} DFS_Result;
+
+typedef struct {
+    // sequence of Vertices (i -> Vertex) | [ Vertex... ]
+    std::vector<Vertex> order;
+
+    // order of each Vertex (Vertex -> order) | { Vertex : Order_t... }
+    std::unordered_map<Vertex, Order_t> bfn;
+} BFS_Result;
+```
+
+#### MST 最小生成樹
+
+這邊有兩種演算法，分別為 `Kruskal’s Algorithm` 和 `Prim's Algorithm`
+
+為了方便設計Kruskal’s Algorithm，所以我們先設計了併查集DSU類([參考hackmd.io](<https://hackmd.io/@fdhscpp110/DSU_MST>))，簡單來說，這個演算法會不斷將編的鄰居頂點加入至同個集合或合併集合(只要不是同一個集合即可(沒有環出現)):
+"#TODO HERE"
+
+```cpp
+// disjoint set union
+class DSU {
+private:
+    std::unordered_map<Vertex, Vertex> data;
+
+public:
+    // dsu get
+    Vertex find(Vertex v) {
+        if (!data.count(v))
+            return data[v] = v;
+        if (data[v] == v)
+            return v;
+        return data[v] = find(data[v]);
+    }
+
+    // a hack method
+    bool unite(Vertex u, Vertex v) {
+        u = find(u);
+        v = find(v);
+
+        if (u == v) return false;
+
+        data[v] = u;
+        return true;
+    };
+    bool unite(Edge e) {
+        return unite(e.u, e.v);
+    };
+};
+```
+
+- Kruskal’s Algorithm
+
+```cpp
+/**
+ * Kruskal’s Algorithm
+ * @param graph a Graph ref
+ * @returns Edges (vector<Edge>) meaning MST
+ */
+template<template<bool, bool> class STG>
+Edges getMST_K(const BasicGraph<STG, false, true>& graph) {
+    Edges res;
+    Edges edges = graph.get_edges();
+    std::sort(edges.begin(), edges.end()); // <
+    DSU dsu;
+
+    for (const Edge edge : edges) {
+        if (dsu.unite(edge))
+            res.push_back(edge);
+    }
+
+    return res;
+};
+
+```
+
+- Prim's Algorithm
+
+```cpp
+/**
+ * Prim's Algorithm
+ * @param graph a Graph ref
+ * @param start start from
+ * @returns Edges (vector<Edge>) meaning MST
+ */
+template<template<bool, bool> class STG>
+Edges getMST_P(const BasicGraph<STG, false, true>& graph, const Vertex start) {
+
+    if (!graph.exists_vertex(start)) return {};
+    std::unordered_set<Vertex> visited;
+    MinHeap<Edge> pHeap;
+    Edges res;
+
+    auto pHeap_import = [&](Vertex u) {
+        visited.insert(u);
+        graph.forEach_NBs(u, [&](Vertex v, Weight_t w){
+            if (!visited.count(v)) pHeap.push(Edge{u, v, w});
+        });
+    };
+
+    pHeap_import(start);
+
+    while (!pHeap.empty()) {
+        const Edge e = pHeap.top();
+        pHeap.pop();
+        if (visited.count(e.v)) continue;
+        pHeap_import(e.v);
+        res.push_back(e);
+    };
+
+    return res;
+};
+```
 
 ### Graph.h
 
@@ -1394,9 +1866,13 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 
 ## 效能分析
 
-在LinkedGraph中，我們選用 `std::unordered_map` 與 `std::unordered_set` 作為底層資料結構的儲存類型。根據數學定義，圖的邊與頂點沒有順序可言(無順序問題)
+在LinkedGraph中，我們使用 `std::unordered_map` 與 `std::unordered_set` 作為底層資料結構的儲存類型。根據數學定義，圖的邊與頂點沒有順序可言(無順序問題)。
+在有無權中，分別使用:
 
-本實作核心選用 `std::unordered_map` 與 `std::unordered_set` 作為底層資料結構。由於在數學定義上，圖形的邊（Edge）與點（Vertex）並沒有內在的「順序」可言，因此使用基於雜湊表（Hash Table）的無序容器是最契合的選擇。
+- 帶有權重 `std::unordered_map<Vertex, std::unordered_map<Vertex, Weight_t>>`
+- 沒有權重 `std::unordered_map<Vertex, std::unordered_set<Vertex>>`
+
+在Matrix中，我們使用 `std::vector<std::vector>` 作為Matrix儲存，並在(u-u)自身邊設為0，對於不存在的邊使用無限Infinite(INF)定義。
 
 理想狀態下（雜湊函數均勻分佈且無劇烈碰撞），底層透過 Key-Value 進行查找與存取的時間複雜度皆為 $O(1)$。各項核心操作的時間複雜度如下表所示：
 
