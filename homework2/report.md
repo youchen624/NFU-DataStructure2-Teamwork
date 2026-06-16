@@ -91,11 +91,11 @@ using DiMatrixGraph     = BasicGraph<Matrix_STG, true,  false>;
 
 - `forEach_NBs(Vertex u, callback)` - 遍歷鄰居(u->v)，其中NB是neighbors的縮寫，會針對圖中**所有**從頂點u出發的鄰居邊跑過一次，過程無保證順序。
   - `Vertex` - 出發的頂點
-  - `callback(Vertex, Weight_t)` - callback(std::function或Lambda)，如果是無權圖則Weight_t會是預設0。
+  - `callback(Vertex, Weight_t, bool&)` - callback(std::function或Lambda)，如果是無權圖則Weight_t會是預設0。bool&用於提前終止遍歷。
 - `forEach_vertex(callback)` - 便利頂點(v)，會針對圖中**所有**的頂點跑過一次，無保證順序。
   - `callback(Vertex)` - callback(std::function或Lambda)。
 - `forEach_edge(callback)` - 遍歷邊(e)，針對途中**所有**邊都會跑過一次，不保證順序。
-  - `callback(Edge)` - callback(std::function或Lambda)，Edge是邊類(結構)。
+  - `callback(Edge, bool&)` - callback(std::function或Lambda)，Edge是邊類(結構)。bool&用於提前終止遍歷。
 
 在設計 `DFS`/`BFS` 時，我設計了一個很有意思的define定義 - `ALLOW_FS_START_FROM_NOT_EXISTS`，字面上的意思，只要定義就允許這兩個演算法的初始頂點不存在圖，當然如果不存在會隨機找一個做為起點。
 
@@ -663,17 +663,20 @@ public:
     /**
      * // forEach neighbors // all (u -> v)
      * @param u Vertex
-     * @param callback function(Vertex, Weight_t);
+     * @param callback function(Vertex, Weight_t, bool&);
+     * - set bool& to true to stop the iteration early
      */
     virtual void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const = 0;
     /**
      * // forEach Vertex // all Vertex in storage
-     * @param callback function(Vertex)
+     * @param callback function(Vertex, bool&)
+     * - set bool& to true to stop the iteration early
      */
     virtual void forEach_vertex(std::function<void(Vertex)> callback) const = 0;
     /**
      * // forEach Edge // all Edge in storage
-     * @param callback function(Edge);
+     * @param callback function(Edge, bool&);
+     * - set bool& to true to stop the iteration early
      */
     virtual void forEach_edge(std::function<void(Edge)> callback) const = 0;
 
@@ -1021,7 +1024,8 @@ if constexpr (!DIRECTED)
     /**
      * // forEach neighbors // all (u -> v)
      * @param u Vertex
-     * @param callback function(Vertex, Weight_t);
+     * @param callback function(Vertex, Weight_t, bool&);
+     * - set bool& to true to stop the interation early
      */
     void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const override {
         const auto u_id_it = id.find(u);
@@ -1034,7 +1038,8 @@ if constexpr (!DIRECTED)
     };
     /**
      * // forEach Vertex // all Vertex in storage
-     * @param callback function(Vertex)
+     * @param callback function(Vertex, bool&)
+     * - set bool& to true to stop the interation early
      */
     void forEach_vertex(std::function<void(Vertex)> callback) const override {
         for (const Vertex v : vid) {

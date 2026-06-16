@@ -162,19 +162,22 @@ public:
     /**
      * // forEach neighbors // all (u -> v)
      * @param u Vertex
-     * @param callback function(Vertex, Weight_t);
+     * @param callback function(Vertex, Weight_t, bool&);
+     * - set bool& to true to stop the iteration early
      */
-    virtual void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const = 0;
+    virtual void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t, bool&)> callback) const = 0;
     /**
      * // forEach Vertex // all Vertex in storage
-     * @param callback function(Vertex)
+     * @param callback function(Vertex, bool&)
+     * - set bool& to true to stop the iteration early
      */
-    virtual void forEach_vertex(std::function<void(Vertex)> callback) const = 0;
+    virtual void forEach_vertex(std::function<void(Vertex, bool&)> callback) const = 0;
     /**
      * // forEach Edge // all Edge in storage
-     * @param callback function(Edge);
+     * @param callback function(Edge, bool&);
+     * - set bool& to true to stop the iteration early
      */
-    virtual void forEach_edge(std::function<void(Edge)> callback) const = 0;
+    virtual void forEach_edge(std::function<void(Edge, bool&)> callback) const = 0;
 
     //
     // modifiers functions
@@ -309,31 +312,32 @@ if constexpr (!DIRECTED)
         return {_get_w(u, v), WEIGHTED};
     };
     
-    void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const override {
+    void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t, bool&)> callback) const override {
         if (data.count(u)) {
+            bool stop = false;
             for (const auto& item : data.at(u)) {
                 const Vertex v = _get_wv(item);
                 const Weight_t w = _get_w(u, v);
-                callback(v, w);
+                callback(v, w, stop);
+                if (stop) return;
             }
         }
     };
-    void forEach_vertex(std::function<void(Vertex)> callback) const override {              
+    void forEach_vertex(std::function<void(Vertex, bool&)> callback) const override {
+        bool stop = false;
         for (const auto& [v, _] : data) {
-            callback(v);
+            callback(v, stop);
+            if (stop) return;
         }
     };
-    void forEach_edge(std::function<void(Edge)> callback) const override {
+    void forEach_edge(std::function<void(Edge, bool&)> callback) const override {
+        bool stop = false;
         for (const auto& [u, um] : data) {
-if constexpr (WEIGHTED)
             // data{ u<Vertex>: um<{ v<Vertex>, w<Weight_t>... }>... }
-            for (const auto& [v, w] : um) {
-                callback(Edge{u, v, w});
-            };
-else
             // data{ u<Vertex>: um<{ v<Vertex>... }>... }
-            for (const Vertex v : um) {
-                callback(Edge{u, v});
+            for (const auto& item : um) {
+                callback(Edge{u, _get_wv(item), _get_w(u, _get_wv(item))}, stop);
+                if (stop) return;
             };
         }
     };
@@ -520,27 +524,34 @@ if constexpr (!DIRECTED)
     /**
      * // forEach neighbors // all (u -> v)
      * @param u Vertex
-     * @param callback function(Vertex, Weight_t);
+     * @param callback function(Vertex, Weight_t, bool&);
+     * - set bool& to true to stop the iteration early
      */
-    void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const override {
+    void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t, bool&)> callback) const override {
         const auto u_id_it = id.find(u);
         if (u_id_it == id.end()) return;
         const ID_t u_id = u_id_it->second;
+        bool stop = false;
         for (ID_t i = 0; i < data.size(); ++i) {
             if (is_inf(data[u_id][i]) || (u_id == i)) continue;
-            callback(vid[i], data[u_id][i]);
+            callback(vid[i], data[u_id][i], stop);
+            if (stop) return;
         }
     };
     /**
      * // forEach Vertex // all Vertex in storage
-     * @param callback function(Vertex)
+     * @param callback function(Vertex, bool&)
+     * - set bool& to true to stop the iteration early
      */
-    void forEach_vertex(std::function<void(Vertex)> callback) const override {
+    void forEach_vertex(std::function<void(Vertex, bool&)> callback) const override {
+        bool stop = false;
         for (const Vertex v : vid) {
-            callback(v);
+            callback(v, stop);
+            if (stop) return;
         }
     };
-    void forEach_edge(std::function<void(Edge)> callback) const override {
+    void forEach_edge(std::function<void(Edge, bool&)> callback) const override {
+        bool stop = false;
         for(ID_t ui = 0; ui < count_vertices(); ++ui) {
             for(ID_t vi = 0; vi < count_vertices(); ++vi) {
                 if (is_inf(data[ui][vi]) || (ui == vi)) continue;
@@ -548,7 +559,8 @@ if constexpr (!DIRECTED)
                     vid[ui],
                     vid[vi],
                     data[ui][vi]
-                });
+                }, stop);
+                if (stop) return;
             }
         }
     };
@@ -703,13 +715,13 @@ public:
     virtual std::vector<Vertex> get_NBs(Vertex u) const = 0;
     // return all neighbors of Vertex u in Graph
 
-    virtual void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const = 0;
+    virtual void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t, bool&)> callback) const = 0;
     // forEach all neighbors
 
-    virtual void forEach_vertex(std::function<void(Vertex)> callback) const = 0;
+    virtual void forEach_vertex(std::function<void(Vertex, bool&)> callback) const = 0;
     // forEach all Vertex
 
-    virtual void forEach_edge(std::function<void(Edge)> callback) const = 0;
+    virtual void forEach_edge(std::function<void(Edge, bool&)> callback) const = 0;
 
     //
     // modify-type
@@ -826,20 +838,20 @@ public:
         if (!data_ptr->exists_vertex(u)) return {};
         std::vector<Vertex> res;
         res.reserve(data_ptr->count_vertices());
-        data_ptr->forEach_NBs(u, [&](Vertex v, Weight_t w){
+        data_ptr->forEach_NBs(u, [&](Vertex v, Weight_t w, bool&){
             res.push_back(get_edge(u, v, w));
         });
         return res;
     };
     // return all neighbors of Vertex u in Graph
 
-    void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const override { data_ptr->forEach_NBs(u, callback); };
+    void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t, bool&)> callback) const override { data_ptr->forEach_NBs(u, callback); };
     // forEach all neighbors
 
-    void forEach_vertex(std::function<void(Vertex)> callback) const override { data_ptr->forEach_vertex(callback); };
+    void forEach_vertex(std::function<void(Vertex, bool&)> callback) const override { data_ptr->forEach_vertex(callback); };
     // forEach all Vertex
 
-    void forEach_edge(std::function<void(Edge)> callback) const override { data_ptr->forEach_edge(callback); };
+    void forEach_edge(std::function<void(Edge, bool&)> callback) const override { data_ptr->forEach_edge(callback); };
 
     //
     // modify-type
@@ -943,7 +955,7 @@ DFS_Result exeDFS(
         
         // (u -> v) childrens
         size_t children_counting = 0;
-        graph.forEach_NBs(pos, [&](Vertex npos, Weight_t weight) {
+        graph.forEach_NBs(pos, [&](Vertex npos, Weight_t weight, bool&) {
 if constexpr (!DIRECTED) {
             if (has_parent && (ppos == npos)) return; // not continue, bc it is a Lambda/std::function
 }
@@ -1038,7 +1050,7 @@ if constexpr (!DIRECTED) {
 
     // exe
     rec(start, std::nullopt);
-    graph.forEach_vertex([&](Vertex v) {
+    graph.forEach_vertex([&](Vertex v, bool&) {
         // for isolated => forest
         if (!res.dfn.count(v)) {
             res.components.emplace_back();
@@ -1102,7 +1114,7 @@ BFS_Result exeBFS(
         // res.bfn.insert(pos, counter);
         // ++counter;
 
-        graph.forEach_NBs(pos, [&](Vertex npos, Weight_t weight) {
+        graph.forEach_NBs(pos, [&](Vertex npos, Weight_t weight, bool&) {
             if (res.bfn.count(npos)) return; // continue; bc of Lambda
             q_push(npos);
             callback(0, pos, npos);
@@ -1180,7 +1192,7 @@ Edges getMST_P(const BasicGraph<STG, false, true>& graph, const Vertex start) {
 
     auto pHeap_import = [&](Vertex u) {
         visited.insert(u);
-        graph.forEach_NBs(u, [&](Vertex v, Weight_t w){
+        graph.forEach_NBs(u, [&](Vertex v, Weight_t w, bool&){
             if (!visited.count(v)) pHeap.push(Edge{u, v, w});
         });
     };
@@ -1290,7 +1302,7 @@ SP_DHolder getSSSP_D(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ver
 
     auto relaxation = [&](PathNode p) {
         if (p.dis != data[p.u].dis) return;
-        graph.forEach_NBs(p.u, [&](Vertex v, Weight_t w){
+        graph.forEach_NBs(p.u, [&](Vertex v, Weight_t w, bool&){
             // EXCEPTION #TODO should throw a clearly class
             if (w < 0) throw ("negative-Weight not support");
             if (res.relax(start, {p.u, v, w}))
@@ -1334,16 +1346,20 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
     data[start] = {start, 0};
 
     for (size_t i = 0; i < graph.number_of_vertices() - 1; ++i) {
-        graph.forEach_edge([&](const Edge e){   // u->v (w)
-            res.relax(start, e);
+        bool changed = false;
+        graph.forEach_edge([&](const Edge e, bool&){   // u->v (w)
+            if (res.relax(start, e)) changed = true;
         });
+        if (!changed) break;    // if nothing were relaxed in this iteration
+        //                          ^^^ => can not be cheaper anymore
     };
 
     // check neg-cycle
-    graph.forEach_edge([&](const Edge e){
+    graph.forEach_edge([&](const Edge e, bool& stop){
         if (res.relax(start, e)) {
             res.has_NegativeCycle = true;
-            return res;
+            stop = true;
+            // return res; // #TODO bug here, return only return to a Lambda
         };
     });
 
