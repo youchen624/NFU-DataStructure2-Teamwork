@@ -11,7 +11,7 @@
 
 1. 一開始我使用單純的class繼承方式，單純的繼承方式就如說明中的圖示相同。
 2. 但在途中發現了很多地方會重複寫到，我意識到這些重複的地方與儲存結構有關。因此我將Graph結構改成使用struct以及template定義了不同的"是否有權重"的類變數。
-3. 再後來我發現我越寫越亂，這樣的結構甚至讓我感到混亂，我重新思考後，我將**儲存**的部分做成單一抽象類IStorage(透過指標儲存於Graph基類，並且被Linked_STG,Matrix_STG繼承)，並透過模板template在BasicGraph(繼承基類Graph)中使用，最後搭配using定義這些不同模板的條件組合而成的所有類(題目出現的)。
+3. 再後來我發現我越寫越亂，這樣的結構甚至讓我感到混亂，我重新思考後，我將**儲存**的部分做成單一抽象類IStorage(透過指標儲存於Graph基類，並且被Linked_STG,Matrix_STG繼承)，並透過樣板template在BasicGraph(繼承基類Graph)中使用，最後搭配using定義這些不同樣板的條件組合而成的所有類(題目出現的)。
 
 ## 程式實作
 
@@ -43,7 +43,54 @@ struct Edge {
 
 ### Storage
 
-在Matrix中，前面提到透過 `std::vector<std::vector<Weight_t>>` 儲存，理由是節省成本(時間與空間上較均衡的選項)，因應根據作業說明所示，加入的頂點很可能不連續，所以這邊還需要一個Bimap交換index，透過 `std::vector` (index->Vertex)以及 `std::unordered_map` (Vertex->index)，有點像是ID的運作方式，詳細的過程請詳見程式或示意圖。
+#### Linked Storage
+
+在LinkedStorage中，透過樣板繼承
+
+```cpp
+template<bool DIRECTED, bool WEIGHTED>
+class Linked_STG : public IStorage;
+```
+
+在儲存結構中，我們分別為有權重/無權重設計不同的資料結構，並且為了快速簡單明瞭，在經過多次調整後，最終使用:
+
+```cpp
+using NB_t = std::conditional_t<            // V -> nb鄰居
+    WEIGHTED,                               // ?:
+    std::unordered_map<Vertex, Weight_t>,   // { V : W }
+    std::unordered_set<Vertex>              // { V... }
+>;
+std::unordered_map<Vertex, NB_t> data;
+// { Vertex : { Vertex : Weight_t... }... } OR
+// { Vertex : { Vertex... } }
+```
+
+其中 `NB_t` 是 `Linked_STG` 底下的一個型別別名，代表的是鄰居型別，是 neighbor type 的縮寫，其中 `std::conditional_t<condition, type1, type2>` 是一個編譯時期的型別函數，會在編譯階段根據condition是否成立選用type1否則使用type2，其中condition必須是在編譯時期被編譯器推導的，例如constexpr常數、template樣板...
+
+由於當涉及有無權重時資料的結構是不同的，為了正確的在鄰居取得頂點，我設計了一個簡單化的方法專門針對單個鄰居項，也就是上面提到的 `NB_t` ( `std::pair<Vertex, NB_t>` in unordered_map):
+
+```cpp
+template<typename T>
+static inline Vertex _get_wv(const T& item) {
+if constexpr (WEIGHTED)
+    return item.first;
+else
+    return item;
+};
+```
+
+#### Matrix Storage
+
+在MatrixStorage中，前面提到透過 `std::vector<std::vector<Weight_t>>` 儲存，理由是節省成本(時間與空間上較均衡的選項)，因應根據作業說明所示，加入的頂點需要能夠接受不連續，所以這邊還需要一個Bimap交換index，透過 `std::vector` (index->Vertex)以及 `std::unordered_map` (Vertex->index)，有點像是ID的運作方式，詳細的過程請詳見程式或示意圖。
+
+```cpp
+// [ [ w ] ] | [u][v] = w;  // by id
+std::vector<std::vector<Weight_t>> data;
+// Bimap
+std::unordered_map<Vertex, ID_t> id;    // { Vertex : id }  | v  -> id
+std::vector<Vertex> vid;                // { id : Vertex }  | id -> v
+```
+
 這是Matrix_STG的運作方式示意圖(大致)：
 
 ![圖片](../.img/DS2-HW2-Matrix_storage.png)
@@ -64,7 +111,7 @@ class BasicGraph : public Graph;
 其中
 
 - `Graph` - 基類有 `IStorage* data_ptr` protected成員，並在BasicGraph中維護(new, delete)。
-- `STG` - 是儲存結構，使用繼承IStorage的類即可，同時支援其他類型(透過撰寫繼承IStorage的類，支援不僅侷限於Linked/Matrix)
+- `STG` - 是儲存結構，使用繼承IStorage的類即可，同時支援其他儲存型態(透過撰寫繼承IStorage的類，支援不僅侷限於Linked/Matrix)
 - `DIRECTED`/`WEIGHTED` - 是否有向/是否有權，字面上，不多做說明。
 
 並透過
@@ -84,6 +131,10 @@ using DiMatrixGraph     = BasicGraph<Matrix_STG, true,  false>;
 進行繼承與定義
 
 其中使用到template搭配 `if constexpr` ，這個部分會在編譯時期自動完成，也就是實際運作時它不需要重新判斷(即不需要在每次執行階段判斷)。
+
+在嘗試透過 `BasicGraph` 呼叫從 `Graph` 繼承來的 `insert_edge(Edge)` 時我發現一個問題，在繼承的類中沒有重新復寫 `Graph::insert_edge(Edge)` 會無法通過編譯，後來小小研究一下發現好像在繼承關係中，編譯器無法保證在 `Graph::insert_edge(Edge)` 中呼叫的 `insert_edge` 是哪一個，所以我需要在 `BasicGraph` 內部加上 `using Graph::insert_edge;`。
+
+ #TODO here
 
 ### Graphs Algorithms Functions
 
@@ -169,7 +220,7 @@ DFS_Result exeDFS(
         
         // (u -> v) childrens
         size_t children_counting = 0;
-        graph.forEach_NBs(pos, [&](Vertex npos, Weight_t weight) {
+        graph.forEach_NBs(pos, [&](Vertex npos, Weight_t weight, bool&) {
 if constexpr (!DIRECTED) {
             if (has_parent && (ppos == npos)) return; // not continue, bc it is a Lambda/std::function
 }
@@ -264,7 +315,7 @@ if constexpr (!DIRECTED) {
 
     // exe
     rec(start, std::nullopt);
-    graph.forEach_vertex([&](Vertex v) {
+    graph.forEach_vertex([&](Vertex v, bool&) {
         // for isolated => forest
         if (!res.dfn.count(v)) {
             res.components.emplace_back();
@@ -332,7 +383,7 @@ BFS_Result exeBFS(
         // res.bfn.insert(pos, counter);
         // ++counter;
 
-        graph.forEach_NBs(pos, [&](Vertex npos, Weight_t weight) {
+        graph.forEach_NBs(pos, [&](Vertex npos, Weight_t weight, bool&) {
             if (res.bfn.count(npos)) return; // continue; bc of Lambda
             q_push(npos);
             callback(0, pos, npos);
@@ -475,7 +526,7 @@ Edges getMST_P(const BasicGraph<STG, false, true>& graph, const Vertex start) {
 
     auto pHeap_import = [&](Vertex u) {
         visited.insert(u);
-        graph.forEach_NBs(u, [&](Vertex v, Weight_t w){
+        graph.forEach_NBs(u, [&](Vertex v, Weight_t w, bool&){
             if (!visited.count(v)) pHeap.push(Edge{u, v, w});
         });
     };
@@ -666,19 +717,19 @@ public:
      * @param callback function(Vertex, Weight_t, bool&);
      * - set bool& to true to stop the iteration early
      */
-    virtual void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const = 0;
+    virtual void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t, bool&)> callback) const = 0;
     /**
      * // forEach Vertex // all Vertex in storage
      * @param callback function(Vertex, bool&)
      * - set bool& to true to stop the iteration early
      */
-    virtual void forEach_vertex(std::function<void(Vertex)> callback) const = 0;
+    virtual void forEach_vertex(std::function<void(Vertex, bool&)> callback) const = 0;
     /**
      * // forEach Edge // all Edge in storage
      * @param callback function(Edge, bool&);
      * - set bool& to true to stop the iteration early
      */
-    virtual void forEach_edge(std::function<void(Edge)> callback) const = 0;
+    virtual void forEach_edge(std::function<void(Edge, bool&)> callback) const = 0;
 
     //
     // modifiers functions
@@ -813,7 +864,7 @@ if constexpr (!DIRECTED)
         return {_get_w(u, v), WEIGHTED};
     };
     
-    void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const override {
+    void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t, bool&)> callback) const override {
         if (data.count(u)) {
             for (const auto& item : data.at(u)) {
                 const Vertex v = _get_wv(item);
@@ -822,12 +873,12 @@ if constexpr (!DIRECTED)
             }
         }
     };
-    void forEach_vertex(std::function<void(Vertex)> callback) const override {              
+    void forEach_vertex(std::function<void(Vertex, bool&)> callback) const override {              
         for (const auto& [v, _] : data) {
             callback(v);
         }
     };
-    void forEach_edge(std::function<void(Edge)> callback) const override {
+    void forEach_edge(std::function<void(Edge, bool&)> callback) const override {
         for (const auto& [u, um] : data) {
 if constexpr (WEIGHTED)
             // data{ u<Vertex>: um<{ v<Vertex>, w<Weight_t>... }>... }
@@ -1027,7 +1078,7 @@ if constexpr (!DIRECTED)
      * @param callback function(Vertex, Weight_t, bool&);
      * - set bool& to true to stop the interation early
      */
-    void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const override {
+    void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t, bool&)> callback) const override {
         const auto u_id_it = id.find(u);
         if (u_id_it == id.end()) return;
         const ID_t u_id = u_id_it->second;
@@ -1039,14 +1090,14 @@ if constexpr (!DIRECTED)
     /**
      * // forEach Vertex // all Vertex in storage
      * @param callback function(Vertex, bool&)
-     * - set bool& to true to stop the interation early
+     * - set bool& to true to stop the iteration early
      */
-    void forEach_vertex(std::function<void(Vertex)> callback) const override {
+    void forEach_vertex(std::function<void(Vertex, bool&)> callback) const override {
         for (const Vertex v : vid) {
             callback(v);
         }
     };
-    void forEach_edge(std::function<void(Edge)> callback) const override {
+    void forEach_edge(std::function<void(Edge, bool&)> callback) const override {
         for(ID_t ui = 0; ui < count_vertices(); ++ui) {
             for(ID_t vi = 0; vi < count_vertices(); ++vi) {
                 if (is_inf(data[ui][vi]) || (ui == vi)) continue;
@@ -1209,13 +1260,13 @@ public:
     virtual std::vector<Vertex> get_NBs(Vertex u) const = 0;
     // return all neighbors of Vertex u in Graph
 
-    virtual void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const = 0;
+    virtual void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t, bool&)> callback) const = 0;
     // forEach all neighbors
 
-    virtual void forEach_vertex(std::function<void(Vertex)> callback) const = 0;
+    virtual void forEach_vertex(std::function<void(Vertex, bool&)> callback) const = 0;
     // forEach all Vertex
 
-    virtual void forEach_edge(std::function<void(Edge)> callback) const = 0;
+    virtual void forEach_edge(std::function<void(Edge, bool&)> callback) const = 0;
 
     //
     // modify-type
@@ -1332,20 +1383,20 @@ public:
         if (!data_ptr->exists_vertex(u)) return {};
         std::vector<Vertex> res;
         res.reserve(data_ptr->count_vertices());
-        data_ptr->forEach_NBs(u, [&](Vertex v, Weight_t w){
+        data_ptr->forEach_NBs(u, [&](Vertex v, Weight_t w, bool&){
             res.push_back(get_edge(u, v, w));
         });
         return res;
     };
     // return all neighbors of Vertex u in Graph
 
-    void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t)> callback) const override { data_ptr->forEach_NBs(u, callback); };
+    void forEach_NBs(Vertex u, std::function<void(Vertex, Weight_t, bool&)> callback) const override { data_ptr->forEach_NBs(u, callback); };
     // forEach all neighbors
 
-    void forEach_vertex(std::function<void(Vertex)> callback) const override { data_ptr->forEach_vertex(callback); };
+    void forEach_vertex(std::function<void(Vertex, bool&)> callback) const override { data_ptr->forEach_vertex(callback); };
     // forEach all Vertex
 
-    void forEach_edge(std::function<void(Edge)> callback) const override { data_ptr->forEach_edge(callback); };
+    void forEach_edge(std::function<void(Edge, bool&)> callback) const override { data_ptr->forEach_edge(callback); };
 
     //
     // modify-type
@@ -1449,7 +1500,7 @@ DFS_Result exeDFS(
         
         // (u -> v) childrens
         size_t children_counting = 0;
-        graph.forEach_NBs(pos, [&](Vertex npos, Weight_t weight) {
+        graph.forEach_NBs(pos, [&](Vertex npos, Weight_t weight, bool&) {
 if constexpr (!DIRECTED) {
             if (has_parent && (ppos == npos)) return; // not continue, bc it is a Lambda/std::function
 }
@@ -1544,7 +1595,7 @@ if constexpr (!DIRECTED) {
 
     // exe
     rec(start, std::nullopt);
-    graph.forEach_vertex([&](Vertex v) {
+    graph.forEach_vertex([&](Vertex v, bool&) {
         // for isolated => forest
         if (!res.dfn.count(v)) {
             res.components.emplace_back();
@@ -1608,7 +1659,7 @@ BFS_Result exeBFS(
         // res.bfn.insert(pos, counter);
         // ++counter;
 
-        graph.forEach_NBs(pos, [&](Vertex npos, Weight_t weight) {
+        graph.forEach_NBs(pos, [&](Vertex npos, Weight_t weight, bool&) {
             if (res.bfn.count(npos)) return; // continue; bc of Lambda
             q_push(npos);
             callback(0, pos, npos);
@@ -1686,7 +1737,7 @@ Edges getMST_P(const BasicGraph<STG, false, true>& graph, const Vertex start) {
 
     auto pHeap_import = [&](Vertex u) {
         visited.insert(u);
-        graph.forEach_NBs(u, [&](Vertex v, Weight_t w){
+        graph.forEach_NBs(u, [&](Vertex v, Weight_t w, bool&){
             if (!visited.count(v)) pHeap.push(Edge{u, v, w});
         });
     };
@@ -1796,7 +1847,7 @@ SP_DHolder getSSSP_D(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ver
 
     auto relaxation = [&](PathNode p) {
         if (p.dis != data[p.u].dis) return;
-        graph.forEach_NBs(p.u, [&](Vertex v, Weight_t w){
+        graph.forEach_NBs(p.u, [&](Vertex v, Weight_t w, bool&){
             // EXCEPTION #TODO should throw a clearly class
             if (w < 0) throw ("negative-Weight not support");
             if (res.relax(start, {p.u, v, w}))
@@ -1840,13 +1891,13 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
     data[start] = {start, 0};
 
     for (size_t i = 0; i < graph.number_of_vertices() - 1; ++i) {
-        graph.forEach_edge([&](const Edge e){   // u->v (w)
+        graph.forEach_edge([&](const Edge e, bool&){   // u->v (w)
             res.relax(start, e);
         });
     };
 
     // check neg-cycle
-    graph.forEach_edge([&](const Edge e){
+    graph.forEach_edge([&](const Edge e, bool&){
         if (res.relax(start, e)) {
             res.has_NegativeCycle = true;
             return res;
@@ -1871,7 +1922,7 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 
 ## 效能分析
 
-在LinkedGraph中，我們使用 `std::unordered_map` 與 `std::unordered_set` 作為底層資料結構的儲存類型。根據數學定義，圖的邊與頂點沒有順序可言(無順序問題)。
+在LinkedGraph中，我們使用 `std::unordered_map` 與 `std::unordered_set` 作為底層資料結構的儲存型別。根據數學定義，圖的邊與頂點沒有順序可言(無順序問題)。
 在有無權中，分別使用:
 
 - 帶有權重 `std::unordered_map<Vertex, std::unordered_map<Vertex, Weight_t>>`
@@ -1893,8 +1944,9 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 | `exists_edge(u, v)` | $O(1)$ | 查詢邊 (u, v) 是否存在 |
 | `get_edges()` | $O(n*v)$ | 取得Graph所有邊 |
 | `get_NBs(u)` | $O(v)$ | 取得頂點 u 的所有鄰居 |
-| `forEach_NBs(u, callback(v, w))` | $O(v)$ | 遍歷所有鄰居(u->v) |
-| `forEach_vertex(callback(v))` | $O(n)$ | 遍歷所有頂點 v |
+| `forEach_NBs(u, callback(v, w, stop&))` | $O(v)$ | 遍歷所有鄰居(u->v) |
+| `forEach_vertex(callback(v, stop&))` | $O(n)$ | 遍歷所有頂點 v |
+| `forEach_edge(callback(e, stop&))` | $O(#TODO)$ | 遍歷所有邊 e |
 | | | |
 | `insert_vertex(u)` | $O(1)$ | 於雜湊表中建立頂點與其鄰接容器。 |
 | `insert_edge(u, v)` | $O(1)$ | 定位頂點後，直接寫入鄰接結構(如儲存權重或記錄連通)。 |
@@ -1919,8 +1971,9 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 | `exists_edge(u, v)` | $O(1)$ | 查詢邊 (u, v) 是否存在 |
 | `get_edges()` | $O(n^2)$ | 取得Graph所有邊 |
 | `get_NBs(u)` | $O(n)$ | 取得頂點 u 的所有鄰居 |
-| `forEach_NBs(u, callback(v, w))` | $O(n)$ | 遍歷所有鄰居(u->v) |
-| `forEach_vertex(callback(v))` | $O(n)$ | 遍歷所有頂點 v |
+| `forEach_NBs(u, callback(v, w, stop&))` | $O(n)$ | 遍歷所有鄰居(u->v) |
+| `forEach_vertex(callback(v, stop&))` | $O(n)$ | 遍歷所有頂點 v |
+| `forEach_edge(callback(e, stop&))` | $O(#TODO)$ | 遍歷所有邊 e |
 | | | |
 | `insert_vertex(u)` | $O(n)$ | 插入頂點 |
 | `insert_edge(u, v)` | $O(1)$ | 插入邊(自動插入頂點，此自動操作會使複雜度提高為$O(n)$) |
@@ -1975,7 +2028,7 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 
 在設計過程中，我更換過最一開始的設計理念，將資料部分分離製作成 `storage`。但後面越做越偏，最後才注意到似乎將演算法等都塞進了 `storage` 之中，這是個未來待修正的問題。
 
-在透過大量 `template` 的實作方法中，其實遇到了不少問題，途中也修改了多次。為此還上網找尋了很多資料，其中最有印象的是非常特別的 `std::conditional_t`，它竟然允許透過一個 `bool` 值來在編譯期決定資料類型，這其實蠻有趣的。
+在透過大量 `template` 的實作方法中，其實遇到了不少問題，途中也修改了多次。為此還上網找尋了很多資料，其中最有印象的是非常特別的 `std::conditional_t`，它竟然允許透過一個 `bool` 值來在編譯期決定資料型別，這其實蠻有趣的。
 
 未來的重構方向上，我應該將 `Storage` 的工作徹底分離，而不再模糊於「資料存取」與「演算法」之間的界線。
 

@@ -222,7 +222,7 @@ using NB_t = std::conditional_t<            // V -> nb鄰居
 
     // get npos/Vertex
     template<typename T>
-    static Vertex _get_wv(const T& item) {
+    static inline Vertex _get_wv(const T& item) {
 if constexpr (WEIGHTED)
         return item.first;
 else
@@ -232,7 +232,8 @@ else
     // get weight by (u, v);
     // you have to promise that is exist or it will returns 0
     Weight_t _get_w(const Vertex u, const Vertex v) const {
-        if (u == v) throw std::invalid_argument("(v, v) is illegal");  // if make it possible, must fix the logic
+        if (u == v) throw std::invalid_argument("(v, v) is illegal");
+        // ^^if make it possible, must fix the logic
 if constexpr (WEIGHTED) {
         const auto it = data.find(u);
         if (it == data.end()) return 0;
@@ -665,11 +666,11 @@ public:
     // destructor
 
     // func | special
-    /**
+    /*
+    / **
      * @details force type cast (static)
      * @warning ensure type currect
-     */
-    /*
+     * /
     template<typename TypeC_Graph>
     static TypeC_Graph& cast(Graph* ptr) {
         return static_cast<TypeC_Graph&>(*ptr);
