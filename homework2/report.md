@@ -15,6 +15,18 @@
 
 ## 程式實作
 
+首先我們使用 `int` 作為頂點型別(`Vertex`)，`double` 最為權重型別(`Weight_t`)，`size_t` 作為順序型別。其中 `bool is_inf(Weight_t w)` 是判斷 `Weight_t` 物件是否為無限大。
+
+```cpp
+using Vertex = int;
+using Order_t = size_t;
+using Weight_t = double;
+// is weight infinity
+inline constexpr bool is_inf(Weight_t w) noexcept { return std::isinf(w); };
+```
+
+如果要改用其他類型的 `Weight_t` ，需要確保有相應 `is_inf` 的方法用於判斷是否為無限大。
+
 ### Edge Class
 
 在Edge邊中，我們設計固定都儲存兩個頂點與一個權重:
@@ -65,7 +77,7 @@ std::unordered_map<Vertex, NB_t> data;
 // { Vertex : { Vertex... } }
 ```
 
-其中 `NB_t` 是 `Linked_STG` 底下的一個型別別名，代表的是鄰居型別，是 neighbor type 的縮寫，其中 `std::conditional_t<condition, type1, type2>` 是一個編譯時期的型別函數，會在編譯階段根據condition是否成立選用type1否則使用type2，其中condition必須是在編譯時期被編譯器推導的，例如constexpr常數、template樣板...
+其中 `NB_t` 是 `Linked_STG` 底下的一個型別別名，代表的是鄰居型別，是 neighbor type 的縮寫，其中 `std::conditional_t<condition, type1, type2>` 是一個編譯時期的型別函數，會在編譯階段根據condition是否成立選用type1否則使用type2，其中condition必須是可以在編譯時期被編譯器推導的，例如constexpr常數、template樣板...
 
 由於當涉及有無權重時資料的結構是不同的，為了正確的在鄰居取得頂點，我設計了一個簡單化的方法專門針對單個鄰居項，也就是上面提到的 `NB_t` ( `std::pair<Vertex, NB_t>` in unordered_map):
 
@@ -92,6 +104,7 @@ std::vector<Vertex> vid;                // { id : Vertex }  | id -> v
 ```
 
 這是Matrix_STG的運作方式示意圖(大致)：
+(使用`Paint.NET`繪製，raw檔在 [.img](../.img/.PDN))
 
 ![圖片](../.img/DS2-HW2-Matrix_storage.png)
 
@@ -132,7 +145,7 @@ using DiMatrixGraph     = BasicGraph<Matrix_STG, true,  false>;
 
 其中使用到template搭配 `if constexpr` ，這個部分會在編譯時期自動完成，也就是實際運作時它不需要重新判斷(即不需要在每次執行階段判斷)。
 
-在嘗試透過 `BasicGraph` 呼叫從 `Graph` 繼承來的 `insert_edge(Edge)` 時我發現一個問題，在繼承的類中沒有重新復寫 `Graph::insert_edge(Edge)` 會無法通過編譯，後來小小研究一下發現好像在繼承關係中，編譯器無法保證在 `Graph::insert_edge(Edge)` 中呼叫的 `insert_edge` 是哪一個，所以我需要在 `BasicGraph` 內部加上 `using Graph::insert_edge;`。
+在嘗試透過 `BasicGraph` 呼叫從 `Graph` 繼承來的 `insert_edge(Edge)` 時我發現一個問題，在繼承的類中沒有重新復寫 `Graph::insert_edge(Edge)` 會無法通過編譯，後來小小研究一下發現好像在繼承關係中，編譯器無法保證在 `Graph::insert_edge(Edge)` 中呼叫的 `insert_edge` 是哪一個，所以需要在 `BasicGraph` 內部加上 `using Graph::insert_edge;`。
 
  #TODO here
 
@@ -148,9 +161,9 @@ using DiMatrixGraph     = BasicGraph<Matrix_STG, true,  false>;
 - `forEach_edge(callback)` - 遍歷邊(e)，針對途中**所有**邊都會跑過一次，不保證順序。
   - `callback(Edge, bool&)` - callback(std::function或Lambda)，Edge是邊類(結構)。bool&用於提前終止遍歷。
 
-在設計 `DFS`/`BFS` 時，我設計了一個很有意思的define定義 - `ALLOW_FS_START_FROM_NOT_EXISTS`，字面上的意思，只要定義就允許這兩個演算法的初始頂點不存在圖，當然如果不存在會隨機找一個做為起點。
-
 #### DFS/BFS Algorithms
+
+在設計 `DFS`/`BFS` 時，我設計了一個很有意思的define定義 - `ALLOW_FS_START_FROM_NOT_EXISTS`，字面上的意思，只要定義就允許這兩個演算法在初始頂點不存在圖的狀況下能夠隨機找一個頂點做為起點。
 
 - `exeDFS(Graph&, Vertex, callback)` - Depth First Search，顧名思義，它會盡可能地深入，這邊透過dfn(`std::unordered_map<Vertex, Order_t>`)判斷是否已經造訪過(同時作為紀錄第幾個造訪的)，這是多次更改後的最終版，簡單來說，這邊使用Lambda遞迴的方式自動製造stack，不斷探索直到完畢。
   - `Graph&` - 圖，這邊引用參考，不會複製整個圖;
@@ -327,6 +340,13 @@ if constexpr (!DIRECTED) {
 };
 ```
 
+透過 `std::unordered_set<Vertex> on_stack;` 以及是否已經造訪過(visited)，來判斷一條邊(pos->npos)為回邊、橫向邊或樹邊。
+
+- 曾造訪過
+  - 存在on_stack裡面 : 回邊
+  - 不存在on_stack內 : 橫向邊
+- 尚未拜訪 : 樹邊
+
 - `exeBFS`
   - `Graph&` - 圖，這邊引用參考，不會複製整個圖;
   - `Vertex` - 起點。若`ALLOW_FS_START_FROM_NOT_EXISTS`有被定義，則允許在起點不存在時自動找一個起點
@@ -443,12 +463,27 @@ typedef struct {
 } BFS_Result;
 ```
 
+在DFS/BFS中為了能夠預設一個callback，我在使用了一個 unnamed namespace 將預設的callback包裝起來：
+
+```cpp
+namespace {     // unnamed namespace
+
+struct FS_callback {
+    void operator()(Vertex, Vertex, Vertex) const {};
+};
+
+};              // unnamed namespace
+```
+
+其中 `(Vertex, Vertex, Vertex)` 分別對應 (parent, current, next)。
+
 #### MST 最小生成樹
 
 這邊有兩種演算法，分別為 `Kruskal’s Algorithm` 和 `Prim's Algorithm`
 
 為了方便設計Kruskal’s Algorithm，所以我們先設計了併查集DSU類([參考hackmd.io](<https://hackmd.io/@fdhscpp110/DSU_MST>))，簡單來說，這個演算法會不斷將編的鄰居頂點加入至同個集合或合併集合(只要不是同一個集合即可(沒有環出現)):
-"#TODO HERE"
+
+"#TODO HERE make img@HERE"
 
 ```cpp
 // disjoint set union
@@ -482,7 +517,7 @@ public:
 };
 ```
 
-- Kruskal’s Algorithm
+##### Kruskal’s Algorithm
 
 ```cpp
 /**
@@ -504,10 +539,11 @@ Edges getMST_K(const BasicGraph<STG, false, true>& graph) {
 
     return res;
 };
-
 ```
 
-- Prim's Algorithm
+Kruskal’s演算法透過不斷將權重最小的的邊加入(在不會形成環時)，直到所有的邊都處理完成。
+
+##### Prim's Algorithm
 
 ```cpp
 /**

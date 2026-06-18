@@ -106,13 +106,13 @@ typedef struct {
     // std::unordered_map<Vertex, std::vector<Vertex>> children;
 } BFS_Result;
 
-namespace {     // namespace null
+namespace {     // unnamed namespace
 
 struct FS_callback {
     void operator()(Vertex, Vertex, Vertex) const {};
 };
 
-};          // namespace null
+};              // unnamed namespace
 
 
 /*
