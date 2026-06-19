@@ -1982,7 +1982,7 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 | `get_NBs(u)` | $O(v)$ | 取得頂點 u 的所有鄰居 |
 | `forEach_NBs(u, callback(v, w, stop&))` | $O(v)$ | 遍歷所有鄰居(u->v) |
 | `forEach_vertex(callback(v, stop&))` | $O(n)$ | 遍歷所有頂點 v |
-| `forEach_edge(callback(e, stop&))` | $O(#TODO)$ | 遍歷所有邊 e |
+| `forEach_edge(callback(e, stop&))` | $O(e)$ | 遍歷所有邊 e |
 | | | |
 | `insert_vertex(u)` | $O(1)$ | 於雜湊表中建立頂點與其鄰接容器。 |
 | `insert_edge(u, v)` | $O(1)$ | 定位頂點後，直接寫入鄰接結構(如儲存權重或記錄連通)。 |
@@ -2009,7 +2009,7 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 | `get_NBs(u)` | $O(n)$ | 取得頂點 u 的所有鄰居 |
 | `forEach_NBs(u, callback(v, w, stop&))` | $O(n)$ | 遍歷所有鄰居(u->v) |
 | `forEach_vertex(callback(v, stop&))` | $O(n)$ | 遍歷所有頂點 v |
-| `forEach_edge(callback(e, stop&))` | $O(#TODO)$ | 遍歷所有邊 e |
+| `forEach_edge(callback(e, stop&))` | $O(n^2)$ | 遍歷所有邊 e |
 | | | |
 | `insert_vertex(u)` | $O(n)$ | 插入頂點 |
 | `insert_edge(u, v)` | $O(1)$ | 插入邊(自動插入頂點，此自動操作會使複雜度提高為$O(n)$) |
