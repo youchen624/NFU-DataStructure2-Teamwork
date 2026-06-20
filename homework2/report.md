@@ -104,13 +104,14 @@ std::vector<Vertex> vid;                // { id : Vertex }  | id -> v
 ```
 
 這是Matrix_STG的運作方式示意圖(大致)：
-(使用`Paint.NET`繪製，raw檔在 [.img](../.img/.PDN))
 
-![圖片](../.img/DS2-HW2-Matrix_storage.png)
+![圖片-Matrix_STG示意圖](../.img/DS2-HW2-Matrix_storage.png)
+(使用`Paint.NET`親自繪製，raw檔在 [.img](../.img/.PDN))
 
 在Matrix中，刪除一個頂點，同時顧及vector特性，我們先將最後一項複製到待刪除的位置，隨後將最後一項刪除(`vector::pop_back()`)，同時修改自身邊及id/value map。
 
-![圖片](../.img/DS2-HW2-Matrix_deleting_Vertex.png)
+![圖片-Matrix_STG刪除方法示意圖](../.img/DS2-HW2-Matrix_deleting_Vertex.png)
+(使用`Paint.NET`親自繪製，raw檔在 [.img](../.img/.PDN))
 
 ### Graphs Classes
 
@@ -165,12 +166,16 @@ using DiMatrixGraph     = BasicGraph<Matrix_STG, true,  false>;
 
 在設計 `DFS`/`BFS` 時，我設計了一個很有意思的define定義 - `ALLOW_FS_START_FROM_NOT_EXISTS`，字面上的意思，只要定義就允許這兩個演算法在初始頂點不存在圖的狀況下能夠隨機找一個頂點做為起點。
 
+##### DFS 深度優先搜尋 Depth-First Search
+
 - `exeDFS(Graph&, Vertex, callback)` - Depth First Search，顧名思義，它會盡可能地深入，這邊透過dfn(`std::unordered_map<Vertex, Order_t>`)判斷是否已經造訪過(同時作為紀錄第幾個造訪的)，這是多次更改後的最終版，簡單來說，這邊使用Lambda遞迴的方式自動製造stack，不斷探索直到完畢。
   - `Graph&` - 圖，這邊引用參考，不會複製整個圖;
   - `Vertex` - 起點。若`ALLOW_FS_START_FROM_NOT_EXISTS`有被定義，則允許在起點不存在時自動找一個起點
   - `callback(Vertex, Vertex, Vertex)` - 三個頂點分別為(parent, current, neighbors)
 
 其中 `std::optional` 是可選的一種std類，因為開始的時候沒有parent，所以我使用這個類來判斷。
+
+以下是程式實作:
 
 ```cpp
 /**
@@ -347,10 +352,16 @@ if constexpr (!DIRECTED) {
   - 不存在on_stack內 : 橫向邊
 - 尚未拜訪 : 樹邊
 
+---
+
+##### BFS 廣度優先搜尋 Breadth-First Search
+
 - `exeBFS`
   - `Graph&` - 圖，這邊引用參考，不會複製整個圖;
   - `Vertex` - 起點。若`ALLOW_FS_START_FROM_NOT_EXISTS`有被定義，則允許在起點不存在時自動找一個起點
   - `callback(Vertex, Vertex, Vertex)` - 相較於DFS，BFS我沒有設計neighbors，三個頂點分別為(parent, current, 0)
+
+以下是程式實作:
 
 ```cpp
 /**
@@ -415,6 +426,10 @@ BFS_Result exeBFS(
 
 ```
 
+---
+
+##### DFS/BFS Results and Callback
+
 為了方便存儲資料(畢竟處理過程就能產生)，因此設計了這兩個演算法專用的result類:
 
 ```cpp
@@ -477,13 +492,26 @@ struct FS_callback {
 
 其中 `(Vertex, Vertex, Vertex)` 分別對應 (parent, current, next)。
 
+---
+
 #### MST 最小生成樹
 
 這邊有兩種演算法，分別為 `Kruskal’s Algorithm` 和 `Prim's Algorithm`
 
-為了方便設計Kruskal’s Algorithm，所以我們先設計了併查集DSU類([參考hackmd.io](<https://hackmd.io/@fdhscpp110/DSU_MST>))，簡單來說，這個演算法會不斷將編的鄰居頂點加入至同個集合或合併集合(只要不是同一個集合即可(沒有環出現)):
+##### Kruskal’s Algorithm
 
-"#TODO HERE make img@HERE"
+為了方便設計Kruskal’s Algorithm，所以我們先設計了併查集DSU類:
+
+###### DSU 併查集 Disjoint Set Union
+
+併查集([參考hackmd.io](<https://hackmd.io/@fdhscpp110/DSU_MST>))，簡單來說，這個演算法會不斷將編的鄰居頂點加入至同個集合或合併集合(只要不是同一個集合即可(沒有環出現)):
+
+示意圖:
+
+![圖片-DSU示意圖](../.img/DS2-HW2-DSU_sample1.png)
+(使用`Paint.NET`親自繪製，raw檔在 [.img](../.img/.PDN))
+
+程式實作:
 
 ```cpp
 // disjoint set union
@@ -517,7 +545,7 @@ public:
 };
 ```
 
-##### Kruskal’s Algorithm
+##### Kruskal’s Algorithm 程式實作
 
 ```cpp
 /**
@@ -544,6 +572,10 @@ Edges getMST_K(const BasicGraph<STG, false, true>& graph) {
 Kruskal’s演算法透過不斷將權重最小的的邊加入(在不會形成環時)，直到所有的邊都處理完成。
 
 ##### Prim's Algorithm
+
+Prim's演算法從一個起點開始，將所有關聯的邊加入最小堆，隨後，不斷從這個最小堆中取出最小權重的邊，只要該邊的對端頂點(u->v, v)未被造訪過，就將其標記為已經造訪過，並將該點的所有沒有造訪過的鄰居邊加入最小堆，簡單來說會從一個點變成一組邊並不斷的從這組邊延伸出去的邊找尋最小代價的邊加入，並將與該邊的尾端頂點有關的所有未造訪過的邊加入堆等待作業。
+
+以下是程式實作:
 
 ```cpp
 /**
@@ -580,6 +612,8 @@ Edges getMST_P(const BasicGraph<STG, false, true>& graph, const Vertex start) {
     return res;
 };
 ```
+
+---
 
 ### Graph.h
 
@@ -1956,7 +1990,11 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 
 -# [回去](#graphh)
 
+---
+
 ## 效能分析
+
+### Linked Graph 效能分析
 
 在LinkedGraph中，我們使用 `std::unordered_map` 與 `std::unordered_set` 作為底層資料結構的儲存型別。根據數學定義，圖的邊與頂點沒有順序可言(無順序問題)。
 在有無權中，分別使用:
@@ -1964,9 +2002,7 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 - 帶有權重 `std::unordered_map<Vertex, std::unordered_map<Vertex, Weight_t>>`
 - 沒有權重 `std::unordered_map<Vertex, std::unordered_set<Vertex>>`
 
-在Matrix中，我們使用 `std::vector<std::vector>` 作為Matrix儲存，並在(u-u)自身邊設為0，對於不存在的邊使用無限Infinite(INF)定義。
-
-理想狀態下（雜湊函數均勻分佈且無劇烈碰撞），底層透過 Key-Value 進行查找與存取的時間複雜度皆為 $O(1)$。各項核心操作的時間複雜度如下表所示：
+在理想狀態下(雜湊函數均勻分佈且無劇烈碰撞)，底層透過 Key-Value 進行查找與存取的時間複雜度皆為 $O(1)$。各項核心操作的時間複雜度如下表所示:
 
 - Linked Graph
 
@@ -1978,7 +2014,7 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 | `degree(u)` | $O(v)$ | 取得頂點 u 的所有出入度數量，其中 v 為出入度總量 |
 | `exists_vertex(u)` | $O(1)$ | 查詢頂點 u 是否存在 |
 | `exists_edge(u, v)` | $O(1)$ | 查詢邊 (u, v) 是否存在 |
-| `get_edges()` | $O(n*v)$ | 取得Graph所有邊 |
+| `get_edges()` | $O(e)$ | 取得Graph所有邊 |
 | `get_NBs(u)` | $O(v)$ | 取得頂點 u 的所有鄰居 |
 | `forEach_NBs(u, callback(v, w, stop&))` | $O(v)$ | 遍歷所有鄰居(u->v) |
 | `forEach_vertex(callback(v, stop&))` | $O(n)$ | 遍歷所有頂點 v |
@@ -1987,13 +2023,17 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 | `insert_vertex(u)` | $O(1)$ | 於雜湊表中建立頂點與其鄰接容器。 |
 | `insert_edge(u, v)` | $O(1)$ | 定位頂點後，直接寫入鄰接結構(如儲存權重或記錄連通)。 |
 | `delete_vertex(u)` | $O(v)$ | 刪除頂點及所有與其相關的邊，其中 v 為有關聯的對 |
-| `delete_edge(u, v)` | $O(1)$ | 藉由雜湊直接定位特定邊並將其抹除。 |
+| `delete_edge(u, v)` | $O(1)$ | 透過雜湊直接定位特定邊並將其刪除。 |
 | | | |
 | `_get_a_vertex()` | $O(1)$ | 取得一個頂點 |
 | `_is_directed()` | $O(1)$ | 是否為有向圖 |
 | `_is_weighted()` | $O(1)$ | 是否為有權圖 |
 
 ---
+
+### Matrix Graph 效能分析
+
+在Matrix中，我們使用 `std::vector<std::vector<Weight_t>>` 作為Matrix儲存，並在(u-u)自身邊設為0，對於不存在的邊使用無限Infinite(INF)定義。
 
 - Matrix Graph
 
@@ -2022,7 +2062,7 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 
 ---
 
-- Algorithms
+### Algorithm Functions 效能分析
 
 | 操作 (Operations) | 平均時間複雜度 | 說明 |
 | :--- | :--- | :--- |
