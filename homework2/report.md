@@ -2014,11 +2014,12 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 | `degree(u)` | $O(v)$ | 取得頂點 u 的所有出入度數量，其中 v 為出入度總量 |
 | `exists_vertex(u)` | $O(1)$ | 查詢頂點 u 是否存在 |
 | `exists_edge(u, v)` | $O(1)$ | 查詢邊 (u, v) 是否存在 |
-| `get_edges()` | $O(e)$ | 取得Graph所有邊 |
-| `get_NBs(u)` | $O(v)$ | 取得頂點 u 的所有鄰居 |
-| `forEach_NBs(u, callback(v, w, stop&))` | $O(v)$ | 遍歷所有鄰居(u->v) |
+| `get_weight(u, v)` | $O(1)$ | 取得權重 |
+| `get_edges()` | $O(e)$ | 取得Graph所有邊，其中 e 是邊數量 |
+| `get_NBs(u)` | $O(v)$ | 取得頂點 u 的所有鄰居，其中v是頂點 u 的鄰居數量 |
+| `forEach_NBs(u, callback(v, w, stop&))` | $O(v)$ | 遍歷所有鄰居(u->v)，其中v是頂點 u 的鄰居數量 |
 | `forEach_vertex(callback(v, stop&))` | $O(n)$ | 遍歷所有頂點 v |
-| `forEach_edge(callback(e, stop&))` | $O(e)$ | 遍歷所有邊 e |
+| `forEach_edge(callback(e, stop&))` | $O(e)$ | 遍歷所有邊 e，其中 e 是邊數量 |
 | | | |
 | `insert_vertex(u)` | $O(1)$ | 於雜湊表中建立頂點與其鄰接容器。 |
 | `insert_edge(u, v)` | $O(1)$ | 定位頂點後，直接寫入鄰接結構(如儲存權重或記錄連通)。 |
@@ -2045,6 +2046,7 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 | `degree(u)` | $O(n)$ | 取得頂點 u 的所有出入度數量 |
 | `exists_vertex(u)` | $O(1)$ | 查詢頂點 u 是否存在 |
 | `exists_edge(u, v)` | $O(1)$ | 查詢邊 (u, v) 是否存在 |
+| `get_weight(u, v)` | $O(1)$ | 取得權重 |
 | `get_edges()` | $O(n^2)$ | 取得Graph所有邊 |
 | `get_NBs(u)` | $O(n)$ | 取得頂點 u 的所有鄰居 |
 | `forEach_NBs(u, callback(v, w, stop&))` | $O(n)$ | 遍歷所有鄰居(u->v) |
@@ -2064,13 +2066,25 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 
 ### Algorithm Functions 效能分析
 
-| 操作 (Operations) | 平均時間複雜度 | 說明 |
-| :--- | :--- | :--- |
-| `exeDFS(graph, start, callback(p, u, v))` | $O()$ | |
-| `exeBFS(graph, start, callback(0, u, v))` | $O()$ | |
-| `getMST_K(graph)` | $O(n^2)$ (Matrix) $O(n log(n))$ (Linked) | 透過Kruskal’s演算法取得最小生成樹 |
-| `getMST_P(graph, start)` | $O()$ | 透過Prim’s演算法取得最小生成樹 |
-| `` | $O()$ | |
+其中，V代表圖中總頂點數，E代表圖中總邊數。
+
+| 圖 | 操作 (Operations) | 平均時間複雜度 | 最壞時間複雜度 | 說明 |
+| :--- | :--- | :--- | :--- | :--- |
+| Linked Graph | `exeDFS(graph, start, callback(p, u, v))` | $O(V+E)$ | $O(V^2 + V*E)$ | |
+| Matrix Graph | `exeDFS(graph, start, callback(p, u, v))` | $O(V^2)$ | $O(V^2)$ | |
+| Linked Graph | `exeBFS(graph, start, callback(0, u, v))` | $O(V+E)$ | $O(V^2 + V*E)$ | |
+| Matrix Graph | `exeBFS(graph, start, callback(0, u, v))` | $O(V^2)$ | $O(V^2)$ | |
+| | | | | |
+| Linked Graph | `getMST_K(graph)` | $O(E log(E))$ | $O(E log(E) + E*V)$ | 透過Kruskal’s演算法取得最小生成樹 |
+| Matrix Graph | `getMST_K(graph)` | $O(V^2 + E log(E))$ | $O(V^2 + E*V)$ | 透過Kruskal’s演算法取得最小生成樹 |
+| Linked Graph | `getMST_P(graph, start)` | $O(E Log(E))$ | $O(V^2 + E*V + E Log(E))$ | 透過Prim’s演算法取得最小生成樹 |
+| Matrix Graph | `getMST_P(graph, start)` | $O(V^2 + E Log(E))$ | $O(V^2 + E Log(E))$ | 透過Prim’s演算法取得最小生成樹 |
+| | | | | |
+| Linked Graph | `getSSSP_D(graph, start)` | $O(E log(E))$ | $O(V^2 + V*E + E log(E))$ | 透過Dijkstra's演算法取得單源最短路徑 |
+| Matrix Graph | `getSSSP_D(graph, start)` | $O(V^2 + E log(E))$ | $O(V^2 + E log(E))$ | 透過Dijkstra's演算法取得單源最短路徑 |
+| 圖 | `` | $O()$ | $O()$ | |
+| 圖 | `` | $O()$ | $O()$ | |
+| 圖 | `` | $O()$ | $O()$ | |
 
 ## 測試與驗證
 

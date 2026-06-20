@@ -1252,9 +1252,9 @@ protected:
             // "to" never visited meaning INF-dis
             (!dataref.count(e.v)) ||
             // (from->to).dis < (org->to).dis // (from->to).dis == (from.dis + w)
-            dataref[dataref[e.u].u].dis + e.weight < dataref[e.v].dis
+            dataref[e.u].dis + e.weight < dataref[e.v].dis
         )) {
-            dataref[e.v] = {e.u, dataref[dataref[e.u].u].dis + e.weight};
+            dataref[e.v] = {e.u, dataref[e.u].dis + e.weight};
             return true;
         } else return false;
     };
