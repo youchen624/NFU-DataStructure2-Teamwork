@@ -613,6 +613,8 @@ Edges getMST_P(const BasicGraph<STG, false, true>& graph, const Vertex start) {
 };
 ```
 
+#### #TODO here
+
 ---
 
 ### Graph.h
@@ -2080,11 +2082,13 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
 | Linked Graph | `getMST_P(graph, start)` | $O(E Log(E))$ | $O(V^2 + E*V + E Log(E))$ | 透過Prim’s演算法取得最小生成樹 |
 | Matrix Graph | `getMST_P(graph, start)` | $O(V^2 + E Log(E))$ | $O(V^2 + E Log(E))$ | 透過Prim’s演算法取得最小生成樹 |
 | | | | | |
-| Linked Graph | `getSSSP_D(graph, start)` | $O(E log(E))$ | $O(V^2 + V*E + E log(E))$ | 透過Dijkstra's演算法取得單源最短路徑 |
-| Matrix Graph | `getSSSP_D(graph, start)` | $O(V^2 + E log(E))$ | $O(V^2 + E log(E))$ | 透過Dijkstra's演算法取得單源最短路徑 |
-| 圖 | `` | $O()$ | $O()$ | |
-| 圖 | `` | $O()$ | $O()$ | |
-| 圖 | `` | $O()$ | $O()$ | |
+| Linked Graph | `getSSSP_D(graph, start)` | $O(E log(E))$ | $O(V^2 + V*E + E log(E))$ | 透過Dijkstra's演算法取得單源最短路徑。不支援負權重! |
+| Matrix Graph | `getSSSP_D(graph, start)` | $O(V^2 + E log(E))$ | $O(V^2 + E log(E))$ | 透過Dijkstra's演算法取得單源最短路徑。不支援負權重! |
+| Linked Graph | `getSSSP_BF(graph, start)` | $O(V*E)$ | $O(V*E)$ | 最佳情況為 $O(E)$ 。透過Bellman-Ford's演算法取得單源最短路徑 |
+| Matrix Graph | `getSSSP_BF(graph, start)` | $O(V^3)$ | $O(V^3)$ | 最佳情況為 $O(V^2)$ 。透過Bellman-Ford's演算法取得單源最短路徑 |
+| | | | | |
+| Linked Graph | `getAPSP_FW(graph)` | $O()$ | $O() | |
+| Matrix Graph | `getAPSP_FW(graph)` | $O()$ | $O() | |
 
 ## 測試與驗證
 

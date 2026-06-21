@@ -1360,11 +1360,35 @@ SP_DHolder getSSSP_BF(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph, const Ve
         if (res.relax(start, e)) {
             res.has_NegativeCycle = true;
             stop = true;
-            // return res; // #TODO bug here, return only return to a Lambda
         };
     });
 
     return res;
+};
+
+/**
+ * Floyd-Warshall Algorithm
+ * @param graph a Graph ref
+ * @param start start from
+ */
+template<template<bool, bool> class STG, bool DIRECTED, bool WEIGHTED>
+// APSP - All-Pairs Shortest Path // 所有對最短路徑
+SP_DHolder getAPSP(const BasicGraph<STG, DIRECTED, WEIGHTED>& graph) {
+    if (graph.is_empty()) return {};
+
+    // default all into res as a {u, 0} (start = u, u->u, 0)
+
+    // for(v as m, (u->m->v)):for(v as u):for(v as v) //
+    graph.forEach_vertex([&](const Vertex v_mid, bool& stop_m){
+        graph.forEach_vertex([&](const Vertex v_u, bool& stop_u){
+            graph.forEach_vertex([&](const Vertex v_v, bool& stop_v){
+                // res[]
+                // TODO change SP_DHolder or create new class
+            });
+        });
+    });
+
+    SP_DHolder res;
 };
 
 
